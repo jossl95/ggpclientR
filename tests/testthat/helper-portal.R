@@ -46,3 +46,79 @@ FORM <- sprintf(r"(<h1>Data Access</h1><form action="/form/admin/logout/?next=/f
 <section x-data="{ open: false }"><h2>Additional Datasets</h2><button>Show 1 datasets</button>
  <div x-show="open"><div>%s</div><div><div>%s</div></div></div></section>)",
   row("Wave 1", 95), HH, HH, EXTRA, EXTRA)
+
+# ---- a fake portal, served by webfakes on localhost -------------------------------------------------------------
+
+AT_ZIP <- make_zip(list("Data/AT_w1.dta" = "dta", "Data/AT_w1.sav" = "sav", "Docs/Codebook.pdf" = "pdf"))
+FFS_ZIP <- make_zip(list("USA2.DAT" = FFS_DAT, "USA2.SPS" = FFS_SPS,
+                         "USA.TBL" = "TABLE 4 BY IND01$01\r\nincome US$ 100\r\n", "Docs/readme.txt" = "r"))
+TOKEN_PATH <- "/form/accounts/login/email/s3cr3t/"
+
+portal_routes <- function(at_zip = AT_ZIP) {
+  zip_headers <- list("content-type" = "application/zip")
+  list(
+    "/data-catalog/" = list(body = CATALOG),
+    "/dataset/ggs2-at-wave1/" = list(body = AT),
+    "/dataset/ggs2-at-wave1-v1-1/" = list(body = AT), # the live site also gives the latest version its own page
+    "/dataset/ggs2-at-wave1-v1-0/" = list(body = AT10),
+    "/dataset/ggs2-nl-wave1/" = list(body = NL),
+    "/dataset/upcoming-ggs2-fr-wave1/" = list(body = FR),
+    "/dataset/ffs-us-thefamilyandfertilitysurvey/" = list(body = FFS),
+    "/form/download/1/" = list(body = make_zip(list("x.dta" = "d")), headers = zip_headers),
+    "/form/download/84/" = list(body = make_zip(list("x.dta" = "d")), headers = zip_headers),
+    "/form/download/61/" = list(body = make_zip(list("x.dta" = "d")), headers = zip_headers),
+    "/form/download/95/" = list(body = at_zip, headers = list("content-type" = "application/zip",
+                                                              "content-disposition" = 'attachment; filename="AT_w1.zip"')),
+    "/form/download/7/" = list(body = FFS_ZIP, headers = zip_headers),
+    "/form/download/96/" = list(body = "<html>sign the agreement</html>", headers = list("content-type" = "text/html"))
+  )
+}
+
+# runs in the server process: base R only
+portal_handler <- function(req, res) {
+  host <- paste0("http://", req$get_header("host"))
+  path <- req$path
+  if (path == "/form/accounts/login/email/s3cr3t/") {
+    res$set_header("Set-Cookie", "sessionid=s1; Path=/")
+    return(res$send("ok"))
+  }
+  if (path == "/form/") {
+    ok <- grepl("sessionid=s1", if (is.null(req$get_header("cookie"))) "" else req$get_header("cookie"), fixed = TRUE)
+    return(res$send(if (ok) gsub("https://www.ggp-i.org", host, req$app$locals$form, fixed = TRUE)
+                    else "we'll send you a secure login link"))
+  }
+  r <- req$app$locals$routes[[path]]
+  if (is.null(r)) {
+    return(res$set_status(404L)$send("not found"))
+  }
+  for (h in names(r$headers)) res$set_header(h, r$headers[[h]])
+  res$send(if (is.character(r$body)) gsub("https://www.ggp-i.org", host, r$body, fixed = TRUE) else r$body)
+}
+environment(portal_handler) <- baseenv()
+
+start_portal <- function(routes, env) {
+  app <- webfakes::new_app()
+  app$locals$routes <- routes
+  app$locals$form <- FORM
+  app$use(portal_handler)
+  webfakes::local_app_process(app, .local_envir = env)
+}
+
+shared_portal <- local({
+  server <- NULL
+  function() {
+    if (is.null(server)) server <<- start_portal(portal_routes(), testthat::teardown_env())
+    server
+  }
+})
+
+# the tests talk to the fake portal (the shared one, or a private one whose AT download is at_zip); no proxy for localhost
+local_portal <- function(env = parent.frame(), at_zip = NULL) {
+  skip_if_not_installed("webfakes")
+  server <- if (is.null(at_zip)) shared_portal() else start_portal(portal_routes(at_zip), env)
+  withr::local_options(ggpclient.base = sub("/$", "", server$url()), .local_envir = env)
+  withr::local_envvar(NO_PROXY = "127.0.0.1,localhost", no_proxy = "127.0.0.1,localhost", GGP_ACCESS_URL = NA,
+                      .local_envir = env)
+}
+
+token <- function() paste0(ggp_base(), TOKEN_PATH)

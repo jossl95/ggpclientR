@@ -75,12 +75,12 @@ stack_files <- function(files) {
       have <- intersect(chunk, keep[[i]])
       if (length(have)) as.list(nanoparquet::read_parquet(files$file[i], col_select = have)) else list()
     })
-    for (c in chunk) { # a column a file lacks is NA there; `c()` finds the type that holds both
-      col <- lapply(pieces, `[[`, c)
+    for (column in chunk) { # a column a file lacks is NA there; `c()` finds the type that holds both
+      col <- lapply(pieces, `[[`, column)
       ref <- col[[which(!vapply(col, is.null, logical(1)))[1]]]
       col <- Map(\(x, k) x %||% ref[rep(NA_integer_, k)], col, n)
       if (any(vapply(col, is.character, logical(1)))) col <- lapply(col, as.character)
-      out[[c]] <- do.call(c, unname(col))
+      out[[column]] <- do.call(c, unname(col))
     }
   }
   as.data.frame(out, check.names = FALSE, optional = TRUE)
@@ -227,12 +227,12 @@ to_stata <- function(parquet, force = FALSE) {
   }
   m <- jsonlite::read_json(meta_of(parquet), simplifyVector = FALSE)
   df <- ggp_read(parquet)
-  for (c in names(df)) { # whole numbers as 4-byte Stata longs, not 8-byte doubles: half the file
-    x <- df[[c]]
+  for (column in names(df)) { # whole numbers as 4-byte Stata longs, not 8-byte doubles: half the file
+    x <- df[[column]]
     if (is.numeric(x) && !is.integer(x) && all(x[!is.na(x)] %% 1 == 0) && all(abs(x[!is.na(x)]) <= STATA_LONG[2])) {
-      df[[c]] <- as.integer(x)
+      df[[column]] <- as.integer(x)
     }
-    if (is.logical(x) && all(is.na(x))) df[[c]] <- as.integer(x)
+    if (is.logical(x) && all(is.na(x))) df[[column]] <- as.integer(x)
   }
   m$column_labels <- lapply(m$column_labels, \(l) if (is.null(l)) NULL else substr(l, 1, 80)) # Stata allows 80 chars
   atomic(target, \(part) haven::write_dta(labelled_frame(df, m, "dta"), part))

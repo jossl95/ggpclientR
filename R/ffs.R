@@ -191,16 +191,16 @@ read_ffs <- function(sps, dat) {
 
 # df with its labels as haven wants them, ready to write
 labelled_frame <- function(df, meta, kind) {
-  for (c in names(df)) {
-    x <- df[[c]]
-    lab <- meta$column_labels[[c]]
-    vl <- meta$value_labels[[c]]
+  for (column in names(df)) {
+    x <- df[[column]]
+    lab <- meta$column_labels[[column]]
+    vl <- meta$value_labels[[column]]
     if (kind == "dta") { # Stata labels whole numbers only: drop labels on columns holding decimals
       whole <- is.numeric(x) && all(x[!is.na(x)] %% 1 == 0)
       vl <- if (whole) vl[number(names(vl)) %% 1 == 0] else NULL
     }
     labels <- if (length(vl)) stats::setNames(number(names(vl)), unlist(vl, use.names = FALSE))
-    miss <- if (kind == "sav") meta$missing_ranges[[c]]
+    miss <- if (kind == "sav") meta$missing_ranges[[column]]
     if (length(miss)) {
       values <- unlist(Filter(is.numeric, miss))
       range <- Filter(is.list, miss)
@@ -211,7 +211,7 @@ labelled_frame <- function(df, meta, kind) {
     } else if (!is.null(lab)) {
       attr(x, "label") <- lab
     }
-    df[[c]] <- x
+    df[[column]] <- x
   }
   df
 }

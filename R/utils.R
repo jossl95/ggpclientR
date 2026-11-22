@@ -25,7 +25,7 @@ atomic <- function(target, write) {
 #' @noRd
 ggp_log <- function(level, msg, ...) {
   msg <- sprintf(msg, ...)
-  if (!is.null(.state$log)) {
+  if (!is.null(.state$log) && dir.exists(dirname(.state$log))) { # the folder of a client may be gone
     cat(sprintf("%s %s %s\n", format(Sys.time(), "%H:%M:%S"), toupper(level), msg), file = .state$log, append = TRUE)
   }
   if (level == "warning") cli::cli_alert_warning("{msg}")
