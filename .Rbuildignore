@@ -1,4 +1,7 @@
 ^PLANNING\.md$
-^\.git
+^\.git$
+^\.github$
 ^data$
 ^download_ggs\.R$
+^run-tests\.sh$
+^README\.md$

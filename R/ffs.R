@@ -195,6 +195,7 @@ labelled_frame <- function(df, meta, kind) {
     x <- df[[column]]
     lab <- meta$column_labels[[column]]
     vl <- meta$value_labels[[column]]
+    vl <- vl[!is.na(number(names(vl)))] # codes that are not numbers (Stata's .a, .b) cannot be labelled
     if (kind == "dta") { # Stata labels whole numbers only: drop labels on columns holding decimals
       whole <- is.numeric(x) && all(x[!is.na(x)] %% 1 == 0)
       vl <- if (whole) vl[number(names(vl)) %% 1 == 0] else NULL

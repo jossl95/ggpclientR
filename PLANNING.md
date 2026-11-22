@@ -49,7 +49,7 @@ p |> ggp_consolidate()
 | `consolidate.to_stata_async(...)` | `ggp_stata(p)` | |
 | `(done, skipped, failed)` | `ggp_result`: `done`, `skipped`, `failed` (a data frame) | prints as `download: 5 done, 2 skipped, 0 failed`; autoprints at the prompt |
 | `ggp-client convert x.SPS` | `ggp_convert_ffs("x.SPS", "dta")` | no command line tool: R users work in R |
-| `download_ggs.py` | `inst/scripts/download_ggs.R`, also `ggp_ggs()` | |
+| `download_ggs.py` | `download_ggs.R` (repo root) | the same four steps, plus `ggp_stata()` |
 | `force`, `concurrency`, filters | same names, as arguments of `ggp_client()` | |
 
 Python's `await` and worker processes become: parallel downloads in one curl session (`httr2::req_perform_parallel`)
@@ -80,7 +80,7 @@ data/download/consolidated/<series>_<wave>.parquet  +  .meta.json  +  .dta
 
 | Python | R file | Contents |
 |---|---|---|
-| `parse.py` | `R/parse.R` | slugs, naming, catalogue/dataset/access page parsing (`rvest`) |
+| `parse.py` | `R/parse.R` | slugs, naming, catalogue/dataset/access page parsing (`xml2`) |
 | `db.py` | `R/db.R` | SQLite catalogue (`DBI`, `RSQLite`), `select` with the same filters |
 | `client.py` | `R/client.R` | `ggp_client`, sync, login, download |
 | `extract.py` | `R/extract.R` | unpack zip and 7z (`archive`), safe paths, lower-case names, nested archives |
@@ -104,28 +104,39 @@ data/download/consolidated/<series>_<wave>.parquet  +  .meta.json  +  .dta
 
 ## Milestones
 
-1. Skeleton, planning, parse + db + tests (no network). Parity with Python on the same HTML.
-2. Client: sync, login, download, extract, against the fake portal.
-3. Read, meta, FFS conversion, preprocess.
-4. Consolidate, label harmonization, Stata export.
-5. Docs: README, `?help` pages, a pkgdown site; `inst/scripts/download_ggs.R`.
-6. Parity run on real GGS-II data; then CRAN-style checks (`R CMD check`).
+1. [done] Skeleton, planning, parse + db + tests (no network). Parity with Python on the same HTML.
+2. [done] Client: sync, login, download, extract, against a fake portal (webfakes).
+3. [done] Read, meta, FFS conversion, preprocess.
+4. [done] Consolidate, label harmonization, Stata export.
+5. [done] README, help pages, `download_ggs.R`. [todo] pkgdown site.
+6. [done] Parity runs: live catalogue (117 datasets, 113 files: identical to Python); real GGS data (69 files, 10 groups:
+   same rows, columns and order; same labels). [todo] `R CMD check` clean, CI.
+
+## Parity on real data (what the comparison found)
+
+Run on the 69 GGS files of both rounds, against the output of the Python package:
+
+- Fixed in R: `attr(x, "label")` partly matches `"labels"` (use `exact = TRUE`); Stata's extended missing values (`.a`)
+  are `"a"` in value labels, as pyreadstat names them; haven does not fail on text in the wrong encoding, it returns
+  invalid UTF-8 (so the latin1 fallback is a check, not a `tryCatch`).
+- Different on purpose, harmless: a column that is a number in one country and text in another is text with `"2"`
+  where Python has `"2.0"`; datetimes carry the `UTC` zone; haven trims trailing spaces of Stata strings; Stata text
+  longer than 2,045 characters is written whole (strL), not cut.
 
 ## Risks and shortcuts
 
-- **Memory.** polars stacks 20 countries lazily; in R a consolidated file (GGS-II wave 1: 185,660 rows x 4,001
-  columns, about 6 GB as doubles) is held in memory. The consolidation is therefore one group at a time.
+- **Memory.** polars stacks 20 countries lazily; in R the consolidated file is held in memory (GGS-II wave 1:
+  185,660 rows x 4,001 columns). Columns are read in chunks of 250 so the peak is the result plus one chunk.
   Upgrade: DuckDB or arrow datasets, which stream. Not needed until someone hits the limit.
-- **Encoding.** Some GGS `.dta` files carry broken text encoding; Python falls back to latin1. `haven` must be
-  checked on those 16 files.
-- **File label.** `haven` does not expose a Stata file label; `meta.json` keeps the key with an empty value.
+- **Speed.** Consolidating all of GGS takes about two minutes (Python: nine seconds), preprocessing about the same as
+  Python's serial run.
 - **Windows.** No forked workers there: `concurrency` applies to downloads only. Stated in the docs.
-- **Stata text.** Python cuts text at 2,045 characters (pyreadstat has no strL). Whatever `haven` does is kept and
-  documented.
+- **File label.** `haven` does not expose a Stata file label; `meta.json` keeps the key with an empty value.
+- **7z.** Members are read one by one from the archive, which is slow for big solid archives. Fine for the portal's.
 
 ## Open questions
 
 - Repository: a private repo `jossl95/ggpclientR`. Creating it needs a person: the session may not create
   repositories. Until then the work is committed locally.
 - Package name: `ggpclient` (R names allow no underscore); repo name `ggpclientR`.
-- Licence and citation: follow the Python repo.
+- Licence and author e-mail: MIT placeholder, set the e-mail before publishing.

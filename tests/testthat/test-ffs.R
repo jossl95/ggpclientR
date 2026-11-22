@@ -43,3 +43,11 @@ test_that("the .sps parser reads layout, labels and missing values", {
   expect_equal(p$missing[["V004$01"]], list(98))
   expect_equal(parse_sps(sub("(98)", "(1 THRU HI)", FFS_SPS, fixed = TRUE))$missing[["V004$01"]], list(list(lo = 1, hi = 1e300)))
 })
+
+test_that("a label whose code is not a number (Stata's .a) is left out of Stata files", {
+  df <- data.frame(q = c(1, 2))
+  meta <- list(column_labels = list(q = "Q"), value_labels = list(q = list(`1` = "Yes", a = "not asked")))
+  f <- tempfile(fileext = ".dta")
+  write_data(df, meta, f)
+  expect_equal(attr(haven::read_dta(f)$q, "labels"), c(Yes = 1))
+})

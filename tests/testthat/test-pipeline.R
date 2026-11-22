@@ -149,7 +149,7 @@ test_that("the GGS pipeline: download, preprocess, consolidate, Stata", {
   expect_false("aut01_2101" %in% names(meta$column_labels))
   expect_false("aut01_2101" %in% nanoparquet::read_parquet_schema(file.path(cons, "ggs-ii_w1.parquet"))$name)  # country-specific: left out
   st <- haven::read_dta(file.path(cons, "ggs-ii_w1.dta"))
-  expect_equal(attr(st$age, "labels"), c(young = 1, old = 2))
+  expect_equal(attr(st$age, "labels"), c(young = 1, old = 2))  # not the "a" of an extended missing value
   expect_equal(attr(st$age, "label"), "Age group")
   expect_equal(as.vector(st$ggp_country), rep("AT", 3))
   expect_equal(nchar(as.vector(st$note)[3]), 3000)  # haven writes long text whole
