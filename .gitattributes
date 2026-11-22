@@ -1,0 +1,2 @@
+# the FFS fixtures copy the CRLF line endings of the real files: never convert them
+tests/testthat/fixtures/ffs/* -text

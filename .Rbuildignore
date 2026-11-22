@@ -9,3 +9,4 @@
 ^\.session\.json$
 ^\.Renviron$
 ^docs$
+^\.gitattributes$
