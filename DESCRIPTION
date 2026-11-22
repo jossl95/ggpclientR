@@ -1,0 +1,33 @@
+Package: ggpclient
+Title: Download, Label and Consolidate Data from the GGP Data Portal
+Version: 0.1.0
+Authors@R: person("Jos", "Slabbekoorn", role = c("aut", "cre"), comment = c(note = "set the e-mail address before publishing"))
+Description: Indexes the data portal of the Generations and Gender Programme (GGP), downloads and unpacks the
+    GGS, FFS, Harmonized Histories and Additional Datasets, converts them to parquet with their variable and value
+    labels, and stacks the countries of each round and wave into one dataset with harmonized labels. An R version
+    of the Python package 'ggp_client': same steps, same folders, same files.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.1
+Depends: R (>= 4.1.0)
+Imports:
+    archive,
+    cli,
+    curl,
+    DBI,
+    haven,
+    httr2 (>= 1.0.0),
+    jsonlite,
+    nanoparquet,
+    parallel,
+    rvest,
+    RSQLite,
+    utils,
+    xml2
+Suggests:
+    askpass,
+    testthat (>= 3.0.0),
+    webfakes,
+    withr
+Config/testthat/edition: 3
