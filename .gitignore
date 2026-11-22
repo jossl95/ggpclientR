@@ -56,3 +56,8 @@ src/*.dll
 
 # ggpclient: the downloaded data
 /data/
+
+# secrets: the saved login session (any data folder) and R environment files that may hold GGP_ACCESS_URL
+data/.session
+.session
+.Renviron

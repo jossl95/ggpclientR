@@ -6,3 +6,5 @@
 ^run-tests\.sh$
 ^README\.md$
 ^_pkgdown\.yml$
+^\.session$
+^\.Renviron$
