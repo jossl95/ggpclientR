@@ -8,7 +8,7 @@ cd "$(dirname "$0")"
 
 repo=$(git remote get-url origin | sed -E 's#^(git@github\.com:|https://github\.com/)##; s#\.git$##')
 site="https://${repo%%/*}.github.io/${repo#*/}/"
-api="https://api.github.com/repos/$repo/actions/workflows/docs.yml/runs"
+runs="repos/$repo/actions/workflows/docs.yml/runs"
 
 [ "$(git branch --show-current)" = main ] || { echo "Switch to main first."; exit 1; }
 if [ -n "$(git status --porcelain -- docs)" ]; then
@@ -26,16 +26,25 @@ git fetch -q origin main
 since=$(python3 -c 'import datetime as d; print((d.datetime.now(d.timezone.utc) - d.timedelta(seconds=10)).strftime("%Y-%m-%dT%H:%M:%SZ"))')
 git push -q origin main
 
-latest() {  # "<id> <status> <conclusion>" of the newest docs run started since the push, or nothing
-  curl -fs "$api?per_page=1&created=%3E%3D$since" | python3 -c '
+if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+  get() { gh api "$1"; }  # logged in: 5000 requests an hour
+else
+  get() { curl -fs "https://api.github.com/$1"; }  # anonymous: 60 requests an hour
+fi
+latest() {  # "<id> <status> <conclusion>" of the newest docs run started since the push, "none", or nothing if GitHub is unreachable
+  get "$runs?per_page=1&created=%3E%3D$since" 2>/dev/null | python3 -c '
 import json, sys
 runs = json.load(sys.stdin)["workflow_runs"]
-if runs: print(runs[0]["id"], runs[0]["status"], runs[0]["conclusion"])' || true
+print(*(runs[0]["id"], runs[0]["status"], runs[0]["conclusion"]) if runs else ["none"])' 2>/dev/null || true
 }
 
 i=0; run=$(latest)
-while [ -z "$run" ] && [ $i -lt 6 ]; do sleep 5; i=$((i + 1)); run=$(latest); done
-if [ -z "$run" ]; then  # the push changed nothing in docs/, so it started no run
+while { [ -z "$run" ] || [ "$run" = none ]; } && [ $i -lt 6 ]; do sleep 5; i=$((i + 1)); run=$(latest); done
+if [ -z "$run" ]; then
+  echo "Pushed, but cannot reach the GitHub API to follow the deploy: see https://github.com/$repo/actions"
+  exit 1
+fi
+if [ "$run" = none ]; then  # the push changed nothing in docs/, so it started no run
   if command -v gh >/dev/null 2>&1; then
     gh workflow run docs.yml -R "$repo" --ref main
   else
