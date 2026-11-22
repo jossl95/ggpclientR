@@ -16,10 +16,10 @@ website:
       - reference.qmd
       - text: Articles
         menu:
-      - ggs-ii.qmd
-      - labels.qmd
-      - ffs.qmd
-      - contract.qmd
+        - ggs-ii.qmd
+        - labels.qmd
+        - ffs.qmd
+        - contract.qmd
     right:
       - icon: python
         href: https://jossl95.github.io/ggp_client/
