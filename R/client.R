@@ -1,6 +1,8 @@
 # Access to the GGP portal: sync the catalogue, log in, download and unpack files.
 
 # run a step of the client in a background R process (mirai): the console stays free, several steps can run at once
+utils::globalVariables(c("base", "dir", "concurrency", "force", "filters", "fn", "args")) # used inside the mirai expression
+
 async_step <- function(p, fn, args) {
   if (!requireNamespace("mirai", quietly = TRUE)) {
     cli::cli_abort("{.code async = TRUE} needs the mirai package", class = "ggp_error")

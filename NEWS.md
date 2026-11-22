@@ -5,7 +5,7 @@
 * Checked against the Python package on the live catalogue and on the 69 GGS files of both rounds: same rows, columns and
   labels.
 
-# development
+# ggpclient 0.1.0.9000
 
 * dta, sav and rds are read with haven and keep their labels (`labelled = TRUE`); rds is a datafile type, also as `.rds.7z`.
 * `async = TRUE` on the download, preprocess, consolidate and Stata steps (mirai).
