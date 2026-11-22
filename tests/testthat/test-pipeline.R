@@ -1,8 +1,3 @@
-row_of <- function(...) {
-  r <- list(project = "GGS", round = 2L, series = "GGS-II", wave = "w1", country = "AT", version = "1", local_path = NA_character_)
-  as.data.frame(utils::modifyList(r, list(...)))
-}
-
 test_that("read, preprocess and consolidate", {
   d <- withr::local_tempdir()
   root <- file.path(d, "download/raw")
@@ -34,7 +29,7 @@ test_that("read, preprocess and consolidate", {
                 row_of(country = "NL", local_path = "ggs-ii/w1/nl/ggs2_w1_nl_v1.0"),
                 row_of(project = "", series = "", wave = "", country = "", version = ""))  # not downloaded: ignored
   expect_equal(basename(datafiles(at)), "AT.dta")
-  expect_equal(ggp_read(file.path(at, "AT.sav"))$age, 99)
+  expect_equal(ggp_read(file.path(at, "AT.sav"), labelled = FALSE)$age, 99)
   expect_equal(ggp_read(file.path(nl, "NL.csv"))$age, "n/a")
 
   r <- preprocess_rows(rows[1, ], root, pre)
@@ -144,4 +139,25 @@ test_that("the GGS pipeline: download, preprocess, consolidate, Stata", {
   again <- suppressMessages(run())
   expect_equal(c(again$stata$done, again$stata$skipped), c(0, 1))  # up to date: kept
   expect_equal(c(again$preprocess$done, again$consolidate$done), c(0, 0))
+})
+
+test_that("steps can run in the background", {
+  skip_if_not_installed("mirai")
+  skip_if_not(requireNamespace("ggpclient", quietly = TRUE) && "async" %in% names(formals(ggpclient::ggp_preprocess)),
+              "the installed ggpclient is not this version")
+  d <- withr::local_tempdir()
+  labelled_dta(file.path(d, "download/raw/ggs-ii/w1/at/ggs2_w1_at_v1.1/a.dta"), data.frame(age = c(30, 40)))
+  con <- db_connect(file.path(d, "catalogue.sqlite"))
+  db_upsert(con, "ggs2-at-wave1", parse_dataset(AT, "ggs2-at-wave1"))
+  db_mark_downloaded(con, 95L, "ggs-ii/w1/at/ggs2_w1_at_v1.1", "dta")
+  DBI::dbDisconnect(con)
+  p <- ggp_client(d, project = "ggs")
+  m <- ggp_preprocess(p, async = TRUE)  # returns at once
+  expect_true(inherits(m, "mirai"))
+  r <- m[]
+  expect_s3_class(r, "ggp_result")
+  expect_equal(r$done, 1L)
+  m2 <- ggp_consolidate(p, async = TRUE)
+  expect_equal(m2[]$done, 1L)
+  expect_true(file.exists(file.path(d, "download/consolidated/ggs-ii_w1.parquet")))
 })

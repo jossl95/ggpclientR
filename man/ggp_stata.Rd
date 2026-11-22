@@ -4,7 +4,7 @@
 \alias{ggp_stata}
 \title{Write the consolidated data as Stata files}
 \usage{
-ggp_stata(p, rows = NULL, concurrency = 2)
+ggp_stata(p, rows = NULL, concurrency = 2, async = FALSE)
 }
 \arguments{
 \item{p}{A \code{\link[=ggp_client]{ggp_client()}}.}
@@ -12,6 +12,10 @@ ggp_stata(p, rows = NULL, concurrency = 2)
 \item{rows}{Other rows than the client's.}
 
 \item{concurrency}{Files at a time.}
+
+\item{async}{Run in a background R process (needs the mirai package) and return a mirai at once; \code{m[]} waits for
+the result, \code{m$data} has it when \code{m} is resolved. Several steps can run at the same time, for example
+downloads of one round while another is processed. Log in first: the background process uses the saved session.}
 }
 \value{
 A \code{ggp_result}.

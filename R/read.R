@@ -1,8 +1,9 @@
 # Read a downloaded datafile: parquet, dta, sav, csv, or an FFS .sps (with its .dat).
 # Values are the codes; value labels are not applied. In sav, values SPSS marks as missing are NA.
 
-FORMATS <- c(".parquet", ".dta", ".sav", ".csv", ".sps") # also the preference when one file comes in several
-LABELLED <- c(".dta", ".sav") # the types that carry variable and value labels
+FORMATS <- c(".parquet", ".dta", ".sav", ".rds", ".csv", ".sps") # also the preference when one file comes in several
+LABELLED <- c(".dta", ".sav", ".rds") # the types that can carry variable and value labels
+ARCHIVES <- c(".7z", ".zip") # a datafile compressed on its own: x.rds.7z, x.dta.zip
 
 file_type <- function(path) tolower(paste0(".", tools::file_ext(path)))
 
@@ -45,27 +46,60 @@ plain <- function(x) {
 
 #' Read a datafile
 #'
-#' Reads one datafile into a data frame: `.parquet`, `.dta`, `.sav`, `.csv`, or an FFS `.sps` (with its `.dat`).
-#' The values are the codes; value labels are not applied (see [ggp_meta()]). In `.sav` files, values that SPSS
-#' marks as missing are `NA`.
+#' Reads one datafile into a data frame: `.parquet`, `.dta`, `.sav`, `.rds`, `.csv`, or an FFS `.sps` (with its
+#' `.dat`). A file compressed on its own as `.7z` or `.zip` (`data.rds.7z`) is unpacked and read when it holds one
+#' datafile.
+#'
+#' Stata, SPSS and rds files are read with haven, so the data keeps its labels: `labelled = TRUE` returns haven
+#' labelled columns (value labels and variable labels as attributes, see [haven::as_factor()]). With `FALSE` the
+#' values are the codes, as in the parquet files. In `.sav` files, values that SPSS marks as missing are `NA`.
 #'
 #' @param path The file.
 #' @param col_select For parquet files: the columns to read (default all). Wide files are large.
+#' @param labelled Keep the labels of dta, sav and rds data (default), or return plain codes.
 #' @return A data frame.
 #' @examples
 #' \dontrun{
-#' df <- ggp_read("data/download/consolidated/ggs-ii_w1.parquet", col_select = c("ggp_country", "dem01"))
+#' df <- ggp_read("ggsii_wave1_at_v_1_1.dta")           # labelled
+#' df$dem01 |> haven::as_factor()
+#' ggp_read("data/download/consolidated/ggs-ii_w1.parquet", col_select = c("ggp_country", "dem01"))
 #' }
 #' @export
-ggp_read <- function(path, col_select = NULL) {
+ggp_read <- function(path, col_select = NULL, labelled = TRUE) {
   type <- file_type(path)
-  switch(type,
+  if (type %in% ARCHIVES) {
+    return(read_compressed(path, col_select, labelled))
+  }
+  df <- switch(type,
     ".parquet" = as.data.frame(nanoparquet::read_parquet(path, col_select = col_select)),
     ".csv" = utils::read.csv(path, check.names = FALSE, stringsAsFactors = FALSE),
-    ".dta" = , ".sav" = as.data.frame(lapply(read_stat(path), plain), check.names = FALSE, optional = TRUE),
+    ".dta" = , ".sav" = as.data.frame(read_stat(path), check.names = FALSE, optional = TRUE),
+    ".rds" = read_rds(path),
     ".sps" = read_ffs(path, dat_of(path))$df,
     cli::cli_abort(c("cannot read {.file {basename(path)}}", "i" = "choose from {.val {FORMATS}}"), class = "ggp_error")
   )
+  if (labelled) df else as.data.frame(lapply(df, plain), check.names = FALSE, optional = TRUE)
+}
+
+read_rds <- function(path) {
+  x <- readRDS(path)
+  if (!is.data.frame(x)) {
+    cli::cli_abort("{.file {basename(path)}} holds {.cls {class(x)[1]}}, not a data frame", class = "ggp_error")
+  }
+  as.data.frame(x, check.names = FALSE, optional = TRUE)
+}
+
+# a datafile in its own 7z or zip: unpacked next to nothing, read, removed
+read_compressed <- function(path, col_select, labelled) {
+  tmp <- tempfile("ggp-")
+  on.exit(unlink(tmp, recursive = TRUE), add = TRUE)
+  unpack(path, tmp, DATA_EXT, FALSE)
+  files <- list.files(tmp, recursive = TRUE, full.names = TRUE)
+  if (length(files) != 1) {
+    cli::cli_abort("{.file {basename(path)}} holds {length(files)} datafiles; unpack it with {.fn ggp_download} instead",
+                   class = "ggp_error")
+  }
+  ggp_read(files, col_select, labelled)
 }
 
 # a value-label code as JSON text: 1 -> "1", never "1.0"
@@ -74,12 +108,12 @@ code <- function(k) vapply(k, \(v) format(v, scientific = FALSE, trim = TRUE, di
 # the code of a value label as JSON text; Stata's extended missing values (.a, .b, ...) are "a", "b", ...
 value_code <- function(k) ifelse(is.na(k), haven::na_tag(k), code(k))
 
-#' The labels of a dta or sav file
+#' The labels of a dta, sav or rds file
 #'
 #' The variable labels, value labels and user-defined missing values of a Stata or SPSS file, as a list that
 #' [jsonlite::toJSON()] turns into the `.meta.json` files this package writes.
 #'
-#' @param path A `.dta` or `.sav` file.
+#' @param path A `.dta`, `.sav` or `.rds` file.
 #' @return `NULL` for other types, else a list: `file_label`, `column_labels` (variable -> label), `value_labels`
 #'   (variable -> code -> label; codes are text), `missing_ranges` (sav) and `original_types` (Stata or SPSS formats).
 #' @examples
@@ -92,7 +126,7 @@ ggp_meta <- function(path) {
   if (!file_type(path) %in% LABELLED) {
     return(NULL)
   }
-  x <- read_stat(path, n_max = 0, user_na = TRUE)
+  x <- if (file_type(path) == ".rds") read_rds(path) else read_stat(path, n_max = 0, user_na = TRUE)
   labels <- \(a) lapply(x, \(col) attr(col, a, exact = TRUE)) # exact: "label" must not match "labels"
   keep <- \(l) l[!vapply(l, is.null, logical(1))]
   vl <- keep(labels("labels"))

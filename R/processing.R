@@ -140,7 +140,7 @@ write_json <- function(x, path) {
 #' @noRd
 to_parquet <- function(src, rel, target, r) {
   dir.create(dirname(target), recursive = TRUE, showWarnings = FALSE)
-  df <- with_provenance(ggp_read(src), r, rel)
+  df <- with_provenance(ggp_read(src, labelled = FALSE), r, rel)
   atomic(target, \(part) {
     nanoparquet::write_parquet(df, part)
     m <- ggp_meta(src)

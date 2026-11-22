@@ -4,23 +4,32 @@
 \alias{ggp_read}
 \title{Read a datafile}
 \usage{
-ggp_read(path, col_select = NULL)
+ggp_read(path, col_select = NULL, labelled = TRUE)
 }
 \arguments{
 \item{path}{The file.}
 
 \item{col_select}{For parquet files: the columns to read (default all). Wide files are large.}
+
+\item{labelled}{Keep the labels of dta, sav and rds data (default), or return plain codes.}
 }
 \value{
 A data frame.
 }
 \description{
-Reads one datafile into a data frame: \code{.parquet}, \code{.dta}, \code{.sav}, \code{.csv}, or an FFS \code{.sps} (with its \code{.dat}).
-The values are the codes; value labels are not applied (see \code{\link[=ggp_meta]{ggp_meta()}}). In \code{.sav} files, values that SPSS
-marks as missing are \code{NA}.
+Reads one datafile into a data frame: \code{.parquet}, \code{.dta}, \code{.sav}, \code{.rds}, \code{.csv}, or an FFS \code{.sps} (with its
+\code{.dat}). A file compressed on its own as \verb{.7z} or \code{.zip} (\code{data.rds.7z}) is unpacked and read when it holds one
+datafile.
+}
+\details{
+Stata, SPSS and rds files are read with haven, so the data keeps its labels: \code{labelled = TRUE} returns haven
+labelled columns (value labels and variable labels as attributes, see \code{\link[haven:as_factor]{haven::as_factor()}}). With \code{FALSE} the
+values are the codes, as in the parquet files. In \code{.sav} files, values that SPSS marks as missing are \code{NA}.
 }
 \examples{
 \dontrun{
-df <- ggp_read("data/download/consolidated/ggs-ii_w1.parquet", col_select = c("ggp_country", "dem01"))
+df <- ggp_read("ggsii_wave1_at_v_1_1.dta")           # labelled
+df$dem01 |> haven::as_factor()
+ggp_read("data/download/consolidated/ggs-ii_w1.parquet", col_select = c("ggp_country", "dem01"))
 }
 }

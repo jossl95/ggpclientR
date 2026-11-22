@@ -4,7 +4,14 @@
 \alias{ggp_download}
 \title{Download the files}
 \usage{
-ggp_download(p, ext = NULL, metadata = FALSE, rows = NULL, root = NULL)
+ggp_download(
+  p,
+  ext = NULL,
+  metadata = FALSE,
+  rows = NULL,
+  root = NULL,
+  async = FALSE
+)
 }
 \arguments{
 \item{p}{A \code{\link[=ggp_client]{ggp_client()}}.}
@@ -14,6 +21,10 @@ ggp_download(p, ext = NULL, metadata = FALSE, rows = NULL, root = NULL)
 \item{metadata}{Also keep the non-data files (documentation, codebooks) from the archives.}
 
 \item{rows, root}{Other rows than the client's, another folder.}
+
+\item{async}{Run in a background R process (needs the mirai package) and return a mirai at once; \code{m[]} waits for
+the result, \code{m$data} has it when \code{m} is resolved. Several steps can run at the same time, for example
+downloads of one round while another is processed. Log in first: the background process uses the saved session.}
 }
 \value{
 A \code{ggp_result} (done, skipped, failed).

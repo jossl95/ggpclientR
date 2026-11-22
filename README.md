@@ -76,6 +76,14 @@ The consolidated labels are harmonized over the countries, each country voting o
 - codes are never changed;
 - `original_labels` lists, for every value countries label differently, each wording and the files that use it.
 
+## Labelled data, rds, background steps
+
+- `ggp_read("file.dta")` (also `.sav` and `.rds`) uses haven and returns labelled columns; `labelled = FALSE` gives the
+  codes. `.rds` files are datafiles like dta and sav (`ext = "rds"`), also when compressed on their own as `data.rds.7z`.
+- `ggp_download()`, `ggp_preprocess()`, `ggp_consolidate()` and `ggp_stata()` take `async = TRUE`: they run in a
+  background R process (mirai) and return at once. `m <- p |> ggp_preprocess(async = TRUE)`, then `m[]` waits for the
+  result. Log in first; the installed package is what runs in the background.
+
 ## Other data
 
 - **FFS** comes as fixed-width `.dat` with SPSS syntax (`.sps`) and frequency tables (`.tbl`), kept in

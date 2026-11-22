@@ -14,7 +14,7 @@ test_that("labels come out as JSON-ready lists with text codes", {
   s <- data.frame(q = haven::labelled_spss(c(1, 98), c(Yes = 1), na_values = 98, label = "Q"))
   haven::write_sav(s, file.path(d, "a.sav"))
   expect_equal(ggp_meta(file.path(d, "a.sav"))$missing_ranges, list(q = list(98)))
-  expect_equal(ggp_read(file.path(d, "a.sav"))$q, c(1, NA))  # user-defined missing is NA when reading
+  expect_equal(ggp_read(file.path(d, "a.sav"), labelled = FALSE)$q, c(1, NA))  # user-defined missing is NA when reading
 })
 
 test_that("a variable with value labels but no variable label has no label; extended missing values are letters", {
@@ -39,10 +39,44 @@ test_that("text that is not UTF-8 is read as latin1", {
   writeBin(b, f)
   expect_equal(ggp_meta(f)$column_labels$w, "Café")
   expect_equal(ggp_meta(f)$value_labels$w[["1"]], "Café")
-  expect_equal(ggp_read(f)$t[1], "café")
+  expect_equal(ggp_read(f, labelled = FALSE)$t[1], "café")
   expect_no_error(jsonlite::toJSON(ggp_meta(f)))
 })
 
 test_that("a file type that cannot be read says so", {
   expect_error(ggp_read("x.xlsx"), "cannot read", class = "ggp_error")
+})
+
+test_that("dta and sav are read with haven: labelled by default, codes on request", {
+  d <- withr::local_tempdir()
+  labelled_dta(file.path(d, "a.dta"), data.frame(sex = c(1, 2)), labels = list(sex = "Gender"), value_labels = list(sex = c(Male = 1, Female = 2)))
+  x <- ggp_read(file.path(d, "a.dta"))
+  expect_s3_class(x$sex, "haven_labelled")
+  expect_equal(as.character(haven::as_factor(x$sex)), c("Male", "Female"))
+  expect_equal(attr(x$sex, "label"), "Gender")
+  expect_equal(ggp_read(file.path(d, "a.dta"), labelled = FALSE)$sex, c(1, 2))
+})
+
+test_that("rds files: read, labelled, in a 7z or zip, and preprocessed like dta", {
+  d <- withr::local_tempdir()
+  x <- data.frame(age = haven::labelled(c(30, 40), c(thirty = 30), label = "Age"), t = c("a", "b"))
+  saveRDS(x, file.path(d, "a.rds"))
+  y <- ggp_read(file.path(d, "a.rds"))
+  expect_equal(attr(y$age, "label"), "Age")
+  expect_equal(ggp_meta(file.path(d, "a.rds"))$value_labels, list(age = list(`30` = "thirty")))
+  expect_equal(ggp_read(file.path(d, "a.rds"), labelled = FALSE)$age, c(30, 40))
+  saveRDS(1:3, file.path(d, "bad.rds"))
+  expect_error(ggp_read(file.path(d, "bad.rds")), "not a data frame", class = "ggp_error")
+
+  seven <- save_raw(make_7z(list("a.rds" = readBin(file.path(d, "a.rds"), "raw", file.size(file.path(d, "a.rds"))))), file.path(d, "a.rds.7z"))
+  expect_equal(attr(ggp_read(seven)$age, "label"), "Age")  # compressed with 7z
+  expect_equal(ggp_read(file.path(d, "a.rds"), labelled = FALSE)$t, ggp_read(seven, labelled = FALSE)$t)
+
+  root <- file.path(d, "raw"); pre <- file.path(d, "pre")
+  dir.create(file.path(root, "x"), recursive = TRUE)
+  file.copy(file.path(d, "a.rds"), file.path(root, "x/a.rds"))
+  r <- preprocess_rows(row_of(local_path = "x"), root, pre)
+  expect_equal(r$done, 1L)
+  expect_equal(ggp_read(file.path(pre, "x/a.parquet"))$age, c(30, 40))
+  expect_equal(jsonlite::read_json(file.path(pre, "x/a.meta.json"))$value_labels$age[["30"]], "thirty")
 })

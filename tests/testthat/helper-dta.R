@@ -10,3 +10,9 @@ labelled_dta <- function(path, df, labels = list(), value_labels = list()) {
   haven::write_dta(df, path)
 }
 
+
+row_of <- function(...) {
+  r <- list(project = "GGS", round = 2L, series = "GGS-II", wave = "w1", country = "AT", version = "1", local_path = NA_character_)
+  as.data.frame(utils::modifyList(r, list(...)))
+}
+

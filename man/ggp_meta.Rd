@@ -2,12 +2,12 @@
 % Please edit documentation in R/read.R
 \name{ggp_meta}
 \alias{ggp_meta}
-\title{The labels of a dta or sav file}
+\title{The labels of a dta, sav or rds file}
 \usage{
 ggp_meta(path)
 }
 \arguments{
-\item{path}{A \code{.dta} or \code{.sav} file.}
+\item{path}{A \code{.dta}, \code{.sav} or \code{.rds} file.}
 }
 \value{
 \code{NULL} for other types, else a list: \code{file_label}, \code{column_labels} (variable -> label), \code{value_labels}

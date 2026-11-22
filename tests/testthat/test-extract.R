@@ -1,6 +1,6 @@
 test_that("extension values", {
-  expect_setequal(norm_ext(NULL), c("dta", "sav", "csv"))
-  expect_setequal(norm_ext(character()), c("dta", "sav", "csv"))
+  expect_setequal(norm_ext(NULL), c("dta", "sav", "rds", "csv"))
+  expect_setequal(norm_ext(character()), c("dta", "sav", "rds", "csv"))
   expect_equal(norm_ext(".SAV"), "sav")
   expect_setequal(norm_ext(c("dta", "CSV")), c("dta", "csv"))
 })

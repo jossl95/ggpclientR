@@ -58,7 +58,7 @@ test_that("sync indexes the catalogue, download unpacks it, and every step can b
   expect_equal(read_text(file.path(ffs_dir, "ffs_us_v1.0.tbl")), "TABLE 4 BY IND01_01\r\nincome US$ 100\r\n")  # names only
   expect_equal(read_text(file.path(at_dir, "data/at_w1.dta")), "dta")
   got <- DBI::dbGetQuery(con, "SELECT local_path, fetched FROM file WHERE download_id = 95")
-  expect_equal(unlist(got, use.names = FALSE), c("ggs-ii/w1/at/ggs2_w1_at_v1.1", "csv dta sav"))
+  expect_equal(unlist(got, use.names = FALSE), c("ggs-ii/w1/at/ggs2_w1_at_v1.1", "csv dta rds sav"))
   expect_length(list.files(d, pattern = "\\.part$", recursive = TRUE, all.files = TRUE), 0)
   expect_equal(format(file.mode(file.path(d, ".session"))), "600")
   expect_false(grepl("s3cr3t", read_text(file.path(d, ".session"))))

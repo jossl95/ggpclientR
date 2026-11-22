@@ -27,6 +27,7 @@ Imports:
 Suggests:
     askpass,
     knitr,
+    mirai,
     reticulate,
     rmarkdown,
     testthat (>= 3.0.0),

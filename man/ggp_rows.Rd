@@ -12,7 +12,7 @@ ggp_rows(p)
 \value{
 A data frame with one row per file: its dataset (\code{slug}, \code{project}, \code{round}, \code{series}, \code{wave}, \code{country},
 \code{version}, ...), the file (\code{download_id}, \code{url}, \code{size_mb}) and where it is on disk (\code{local_path}, \code{fetched}).
-Refreshed after \code{\link[=ggp_sync]{ggp_sync()}} and \code{\link[=ggp_download]{ggp_download()}}.
+Read from the catalogue each time, so it is current after \code{\link[=ggp_download]{ggp_download()}} too, also when that ran in the background.
 }
 \description{
 The files a client works on

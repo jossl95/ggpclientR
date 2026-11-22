@@ -1,6 +1,6 @@
 # Unpack downloaded archives: keep the datafiles asked for, mirror nested archives as nested folders.
 
-DATA_EXT <- c("dta", "sav", "csv")
+DATA_EXT <- c("dta", "sav", "rds", "csv")
 ARCHIVE_EXT <- c("zip", "7z") # the portal serves both, and some ".7z" files are really zips: content decides
 MAX_DEPTH <- 5 # shortcut: no cap on unpacked size, fine for archives from the portal; add one if that changes
 

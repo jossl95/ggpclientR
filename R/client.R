@@ -1,5 +1,18 @@
 # Access to the GGP portal: sync the catalogue, log in, download and unpack files.
 
+# run a step of the client in a background R process (mirai): the console stays free, several steps can run at once
+async_step <- function(p, fn, args) {
+  if (!requireNamespace("mirai", quietly = TRUE)) {
+    cli::cli_abort("{.code async = TRUE} needs the mirai package", class = "ggp_error")
+  }
+  mirai::mirai({
+    options(ggpclient.base = base)
+    q <- do.call(ggpclient::ggp_client, c(list(dir, concurrency = concurrency, force = force), filters))
+    do.call(getExportedValue("ggpclient", fn), c(list(q), args))
+  }, dir = p$dir, concurrency = p$concurrency, force = p$force, filters = p$filters, fn = fn, args = args,
+  base = ggp_base())
+}
+
 #' A client for the GGP data portal
 #'
 #' Holds the catalogue (`data_dir/catalogue.sqlite`), the rows your filters select, and the portal session. Pass it
@@ -88,9 +101,9 @@ refresh <- function(p) {
 #' @param p A [ggp_client()].
 #' @return A data frame with one row per file: its dataset (`slug`, `project`, `round`, `series`, `wave`, `country`,
 #'   `version`, ...), the file (`download_id`, `url`, `size_mb`) and where it is on disk (`local_path`, `fetched`).
-#'   Refreshed after [ggp_sync()] and [ggp_download()].
+#'   Read from the catalogue each time, so it is current after [ggp_download()] too, also when that ran in the background.
 #' @export
-ggp_rows <- function(p) p$rows
+ggp_rows <- function(p) refresh(p)$rows # a background step may have changed the catalogue
 
 portal_request <- function(url) {
   httr2::request(abs_url(url)) |>
@@ -264,13 +277,17 @@ disposition_filename <- function(header) {
 #' @param ext The datafile type(s) to keep: `"dta"`, `"sav"`, `"csv"`, several, or `NULL` for all three.
 #' @param metadata Also keep the non-data files (documentation, codebooks) from the archives.
 #' @param rows,root Other rows than the client's, another folder.
+#' @param async Run in a background R process (needs the mirai package) and return a mirai at once; `m[]` waits for
+#'   the result, `m$data` has it when `m` is resolved. Several steps can run at the same time, for example
+#'   downloads of one round while another is processed. Log in first: the background process uses the saved session.
 #' @return A `ggp_result` (done, skipped, failed).
 #' @examples
 #' \dontrun{
 #' p |> ggp_download(ext = "dta")
 #' }
 #' @export
-ggp_download <- function(p, ext = NULL, metadata = FALSE, rows = NULL, root = NULL) {
+ggp_download <- function(p, ext = NULL, metadata = FALSE, rows = NULL, root = NULL, async = FALSE) {
+  if (async) return(async_step(p, "ggp_download", list(ext = ext, metadata = metadata, rows = rows, root = root)))
   rows <- rows %||% p$rows
   root <- root %||% p$downloads
   want <- norm_ext(ext)
@@ -381,9 +398,13 @@ ggp_download <- function(p, ext = NULL, metadata = FALSE, rows = NULL, root = NU
 #'
 #' @param p A [ggp_client()].
 #' @param rows Other rows than the client's.
+#' @param async Run in a background R process (needs the mirai package) and return a mirai at once; `m[]` waits for
+#'   the result, `m$data` has it when `m` is resolved. Several steps can run at the same time, for example
+#'   downloads of one round while another is processed. Log in first: the background process uses the saved session.
 #' @return A `ggp_result`.
 #' @export
-ggp_preprocess <- function(p, rows = NULL) {
+ggp_preprocess <- function(p, rows = NULL, async = FALSE) {
+  if (async) return(async_step(p, "ggp_preprocess", list(rows = rows)))
   preprocess_rows(rows %||% p$rows, p$downloads, p$processed, p$force, p$concurrency)
 }
 
@@ -404,9 +425,13 @@ ggp_preprocess <- function(p, rows = NULL) {
 #'
 #' @param p A [ggp_client()].
 #' @param rows Other rows than the client's.
+#' @param async Run in a background R process (needs the mirai package) and return a mirai at once; `m[]` waits for
+#'   the result, `m$data` has it when `m` is resolved. Several steps can run at the same time, for example
+#'   downloads of one round while another is processed. Log in first: the background process uses the saved session.
 #' @return A `ggp_result`.
 #' @export
-ggp_consolidate <- function(p, rows = NULL) {
+ggp_consolidate <- function(p, rows = NULL, async = FALSE) {
+  if (async) return(async_step(p, "ggp_consolidate", list(rows = rows)))
   consolidate_rows(rows %||% p$rows, p$downloads, p$processed, p$consolidated, p$force)
 }
 
@@ -420,9 +445,13 @@ ggp_consolidate <- function(p, rows = NULL) {
 #' @param p A [ggp_client()].
 #' @param rows Other rows than the client's.
 #' @param concurrency Files at a time.
+#' @param async Run in a background R process (needs the mirai package) and return a mirai at once; `m[]` waits for
+#'   the result, `m$data` has it when `m` is resolved. Several steps can run at the same time, for example
+#'   downloads of one round while another is processed. Log in first: the background process uses the saved session.
 #' @return A `ggp_result`.
 #' @export
-ggp_stata <- function(p, rows = NULL, concurrency = 2) {
+ggp_stata <- function(p, rows = NULL, concurrency = 2, async = FALSE) {
+  if (async) return(async_step(p, "ggp_stata", list(rows = rows, concurrency = concurrency)))
   names <- names(consolidation_groups(rows %||% p$rows, p$downloads, p$processed))
   files <- file.path(p$consolidated, paste0(names, ".parquet"))
   stata_files(files[file.exists(files)], p$force, concurrency)
