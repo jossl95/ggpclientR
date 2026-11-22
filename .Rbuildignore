@@ -10,3 +10,4 @@
 ^\.Renviron$
 ^docs$
 ^\.gitattributes$
+^deploy-docs\.sh$
