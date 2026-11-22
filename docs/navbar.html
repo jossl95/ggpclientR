@@ -1,0 +1,23 @@
+<script>
+// Line the navbar up with the body text: the title with its left edge, the last icon with its right edge.
+// Quarto's page grid differs per screen width, so measure instead of fixing a width in CSS.
+(() => {
+  const nav = document.querySelector(".navbar-container"), main = document.querySelector("main.content");
+  if (!nav || !main) return;
+  const pad = () => {  // move the outer elements by the distance between them and the body text
+    const shown = [...nav.children].map(e => e.getBoundingClientRect()).filter(b => b.width > 0);
+    if (!shown.length) return;
+    const m = main.getBoundingClientRect(), s = getComputedStyle(nav);
+    const left = Math.min(...shown.map(b => b.left)), right = Math.max(...shown.map(b => b.right));
+    nav.style.paddingLeft = Math.max(0, parseFloat(s.paddingLeft) + m.left - left) + "px";
+    nav.style.paddingRight = Math.max(0, parseFloat(s.paddingRight) + right - m.right) + "px";
+  };
+  const fit = () => {
+    nav.style.paddingLeft = nav.style.paddingRight = "";
+    pad(); pad();  // the menu reflows once padded: a second pass takes up what is left
+  };
+  addEventListener("resize", fit);
+  addEventListener("load", fit);  // again once Quarto's scripts have filled in the search button
+  fit();
+})();
+</script>

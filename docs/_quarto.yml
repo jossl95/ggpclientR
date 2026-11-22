@@ -36,3 +36,4 @@ format:
     toc: true
     code-copy: true
     css: styles.css
+    include-after-body: navbar.html
