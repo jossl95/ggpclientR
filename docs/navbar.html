@@ -1,7 +1,7 @@
 <script>
 // Line the navbar up with the page: the title starts at the body text's left edge, and the right menu (R/Python,
-// GitHub, dark mode, search) starts above "On this page". Without that column (narrow screens) the menu ends at the
-// body text's right edge.
+// GitHub, dark mode, search) starts above "On this page", or at the body text's right edge on a page without one.
+// Without room there (narrow screens) the menu ends at the body text's right edge.
 // Quarto's page grid differs per screen width, so measure instead of fixing a width in CSS.
 (() => {
   const nav = document.querySelector(".navbar-container"), main = document.querySelector("main.content");
@@ -13,8 +13,10 @@
     const left = Math.min(...shown.map(b => b.left)), right = Math.max(...shown.map(b => b.right));
     nav.style.paddingLeft = Math.max(0, parseFloat(s.paddingLeft) + m.left - left) + "px";
     const icon = nav.querySelector(".navbar-nav.ms-auto i"), toc = document.querySelector("#toc-title");
-    const above = icon && toc && toc.getBoundingClientRect().width > 0 && icon.getBoundingClientRect().width > 0;
-    const end = above ? toc.getBoundingClientRect().left + right - icon.getBoundingClientRect().left : m.right;  // where the last icon must end
+    const wide = matchMedia("(min-width: 992px)").matches && icon && icon.getBoundingClientRect().width > 0;
+    const x = toc && toc.getBoundingClientRect().width > 0 ? toc.getBoundingClientRect().left : m.right;  // where the first icon goes
+    const beside = wide ? x + right - icon.getBoundingClientRect().left : Infinity;  // where the last icon then ends
+    const end = beside <= right + parseFloat(s.paddingRight) ? beside : m.right;
     nav.style.paddingRight = Math.max(0, parseFloat(s.paddingRight) + right - end) + "px";
   };
   const fit = () => {
