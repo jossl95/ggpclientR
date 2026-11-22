@@ -173,3 +173,32 @@ test_that("Content-Disposition file names", {
   expect_equal(disposition_filename("attachment; filename=plain.zip; size=3"), "plain.zip")
   expect_null(disposition_filename(NA_character_))
 })
+
+test_that("the Python package's .session.json is a login for R, and the other way round", {
+  local_portal()
+  d <- withr::local_tempdir()
+  local_mocked_bindings(askpass = \(prompt) NULL, .package = "askpass")
+  host <- sub("^https?://", "", sub(":[0-9]+$", "", ggp_base()))
+  jsonlite::write_json(list(list(name = "sessionid", value = "s1", domain = host, path = "/")),
+                       file.path(d, ".session.json"), auto_unbox = TRUE)
+  p <- ggp_client(d)  # no link, no R session: the Python one is imported
+  expect_no_error(ggp_login(p))
+  expect_match(read_text(file.path(d, "ggpclient.log")), "saved session reused")
+
+  e <- withr::local_tempdir()  # a login with the link leaves a .session.json for Python
+  ggp_login(ggp_client(e, token()))
+  cookies <- jsonlite::read_json(file.path(e, ".session.json"))
+  expect_equal(c(cookies[[1]]$name, cookies[[1]]$value), c("sessionid", "s1"))
+  expect_equal(format(file.mode(file.path(e, ".session.json"))), "600")
+})
+
+test_that("every client logs to its own file", {
+  a <- withr::local_tempdir()
+  b <- withr::local_tempdir()
+  pa <- ggp_client(a)
+  pb <- ggp_client(b)
+  ggp_preprocess(pa)
+  ggp_log(pb$log, "info", "only b")
+  expect_false(file.exists(pa$log) && grepl("only b", read_text(pa$log)))
+  expect_match(read_text(pb$log), "only b")
+})

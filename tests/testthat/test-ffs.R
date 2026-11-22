@@ -51,3 +51,26 @@ test_that("a label whose code is not a number (Stata's .a) is left out of Stata 
   write_data(df, meta, f)
   expect_equal(attr(haven::read_dta(f)$q, "labels"), c(Yes = 1))
 })
+
+test_that("an FFS download of two samples with ready-made .sav files (Estonia)", {
+  d <- withr::local_tempdir()
+  members <- list()
+  for (s in c("F", "M")) {
+    f <- file.path(d, paste0("EST_", s, ".SAV"))
+    x <- data.frame(`IND01$01` = haven::labelled(c(1, 2), c(yes = 1, no = 2)), check.names = FALSE)
+    haven::write_sav(x, f)
+    members[[paste0("EST_", s, ".SAV")]] <- readBin(f, "raw", file.size(f))
+    members[[paste0("EST_", s, ".DAT")]] <- "x"
+    members[[paste0("EST_", s, ".LST")]] <- "x"
+  }
+  zf <- save_raw(make_zip(members), file.path(d, "ee.zip"))
+  dest <- file.path(d, "ffs/ee")
+  n <- unpack_ffs(zf, "ee.zip", dest, "ffs_ee_v1.0", "dta", FALSE, convert_to = "dta")
+  # 4 raw (the .LST listings are documents: only with metadata) + 2 converted
+  expect_equal(n, 6L)
+  expect_equal(tree(dest), c("converted_data_est_f.dta", "converted_data_est_m.dta", "ffs_ee_v1.0_est_f.dat",
+                             "ffs_ee_v1.0_est_f.sav", "ffs_ee_v1.0_est_m.dat", "ffs_ee_v1.0_est_m.sav"))
+  x <- haven::read_dta(file.path(dest, "converted_data_est_f.dta"))
+  expect_equal(names(x), "IND01_01")
+  expect_equal(attr(x$IND01_01, "labels"), c(yes = 1, no = 2))
+})

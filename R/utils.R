@@ -17,16 +17,13 @@ atomic <- function(target, write) {
   invisible(target)
 }
 
-# the log file of the client in use; set by ggp_client(), read here so that every function can log
-.state <- new.env()
-
-#' One log line: always to the log file, to the screen when it matters (warnings, errors) or when
-#' `ggpclient.verbose` is TRUE. Never put an access link in a message: it works as a password.
+#' One log line: to the client's log file (`log`, a path, or NULL for none), and to the screen when it matters
+#' (warnings, errors) or when `ggpclient.verbose` is TRUE. Never put an access link in a message: it works as a password.
 #' @noRd
-ggp_log <- function(level, msg, ...) {
+ggp_log <- function(log, level, msg, ...) {
   msg <- sprintf(msg, ...)
-  if (!is.null(.state$log) && dir.exists(dirname(.state$log))) { # the folder of a client may be gone
-    cat(sprintf("%s %s %s\n", format(Sys.time(), "%H:%M:%S"), toupper(level), msg), file = .state$log, append = TRUE)
+  if (!is.null(log) && dir.exists(dirname(log))) { # the folder of a client may be gone
+    cat(sprintf("%s %s %s\n", format(Sys.time(), "%H:%M:%S"), toupper(level), msg), file = log, append = TRUE)
   }
   if (level == "warning") cli::cli_alert_warning("{msg}")
   else if (level == "error") cli::cli_alert_danger("{msg}")
@@ -34,13 +31,21 @@ ggp_log <- function(level, msg, ...) {
   invisible(msg)
 }
 
-#' lapply over x in forked workers (one on Windows); a failure comes back as list(error = message), not as a stop
+#' `f` over each item of x in `cores` background R processes (mirai daemons; also on Windows). A failure comes back as
+#' list(error = message), not as a stop. `f` and what it calls must be in the package: the daemons load it.
 #' @noRd
+utils::globalVariables("fun") # the function the daemons call: sent along as `fun`
+
 parallel_map <- function(x, f, cores) {
-  cores <- if (.Platform$OS.type == "windows") 1L else max(1L, min(as.integer(cores), length(x)))
-  res <- parallel::mclapply(x, \(i) tryCatch(list(value = f(i)), error = \(e) list(error = conditionMessage(e))),
-                            mc.cores = cores, mc.preschedule = FALSE)
-  lapply(res, \(r) if (is.list(r) && ("value" %in% names(r) || "error" %in% names(r))) r else list(error = "the worker process stopped"))
+  if (!length(x)) {
+    return(list())
+  }
+  profile <- "ggpclient"
+  mirai::daemons(max(1L, min(as.integer(cores), length(x))), .compute = profile)
+  on.exit(mirai::daemons(0, .compute = profile), add = TRUE)
+  res <- mirai::mirai_map(x, \(item) tryCatch(list(value = fun(item)), error = \(e) list(error = conditionMessage(e))),
+                         fun = f, .compute = profile)[]
+  lapply(res, \(r) if (mirai::is_error_value(r)) list(error = paste("the worker process stopped:", as.character(r))) else r)
 }
 
 # the result of a step: how many were done, skipped, and which failed (name, error)

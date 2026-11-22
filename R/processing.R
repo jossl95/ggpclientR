@@ -20,7 +20,7 @@
 #' convert_dir (default: dest). Existing files are kept unless force. Returns the number of matching files.
 #' @noRd
 unpack_ffs <- function(archive, filename, dest, stem, ext, metadata, convert_to = character(), force = FALSE,
-                       convert_dir = dest) {
+                       convert_dir = dest, log = NULL) {
   # shortcut: two versions of one country would share converted_data.*; the portal has one per country
   dir.create(dest, recursive = TRUE, showWarnings = FALSE)
   tmp <- tempfile(".unpack-", tmpdir = dirname(dest))
@@ -28,7 +28,7 @@ unpack_ffs <- function(archive, filename, dest, stem, ext, metadata, convert_to 
   n <- unpack_file(archive, filename, tmp, union(ext, RAW), metadata, force = TRUE)
   if (n && length(convert_to)) {
     dir.create(convert_dir, recursive = TRUE, showWarnings = FALSE)
-    n <- n + convert_ffs(tmp, convert_to, CONVERTED, force, out_dir = convert_dir)
+    n <- n + convert_ffs(tmp, convert_to, CONVERTED, force, out_dir = convert_dir, log = log)
   }
   files <- sort(list.files(tmp, recursive = TRUE, full.names = TRUE, all.files = TRUE, no.. = TRUE))
   suffix <- file_type(files)
@@ -142,24 +142,27 @@ to_parquet <- function(src, rel, target, r) {
   dir.create(dirname(target), recursive = TRUE, showWarnings = FALSE)
   df <- with_provenance(ggp_read(src, labelled = FALSE), r, rel)
   atomic(target, \(part) {
-    nanoparquet::write_parquet(df, part)
+    arrow::write_parquet(df, part)
     m <- ggp_meta(src)
     if (!is.null(m)) write_json(c(list(file = rel), m), meta_of(target))
   })
 }
 
+# the job of one worker: one file to parquet
+preprocess_one <- function(x) to_parquet(x$src, x$rel, x$target, x$r)
+
 #' Save the downloaded data files of `rows` as parquet, `concurrency` at a time
 #' @noRd
-preprocess_rows <- function(rows, root, out, force = FALSE, concurrency = 4) {
+preprocess_rows <- function(rows, root, out, force = FALSE, concurrency = 4, log = NULL) {
   j <- jobs(rows, root, out, force)
-  res <- parallel_map(j$todo, \(x) to_parquet(x$src, x$rel, x$target, x$r), concurrency)
+  res <- parallel_map(j$todo, preprocess_one, concurrency)
   failed <- failures(character(), character())
   for (i in seq_along(res)) {
     if (is.null(res[[i]]$error)) {
-      ggp_log("info", "preprocessed %s", substring(j$todo[[i]]$target, nchar(out) + 2L))
+      ggp_log(log, "info", "preprocessed %s", substring(j$todo[[i]]$target, nchar(out) + 2L))
     } else {
       failed <- rbind(failed, failures(j$todo[[i]]$rel, res[[i]]$error))
-      ggp_log("error", "preprocess failed %s: %s", j$todo[[i]]$rel, res[[i]]$error)
+      ggp_log(log, "error", "preprocess failed %s: %s", j$todo[[i]]$rel, res[[i]]$error)
     }
   }
   new_result("preprocess", length(j$todo) - nrow(failed), j$skipped, failed)

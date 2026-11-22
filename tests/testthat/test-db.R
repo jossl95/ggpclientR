@@ -29,3 +29,16 @@ test_that("ids are read as ranges, in either direction", {
   expect_equal(parse_ids("3-7,10"), list(c(3L, 7L), c(10L, 10L)))
   expect_equal(parse_ids("7-3"), list(c(3L, 7L)))
 })
+
+test_that("a re-sync drops replaced links and keeps the old rows of a page with no link", {
+  con <- db_connect(":memory:")
+  withr::defer(DBI::dbDisconnect(con))
+  page <- list(version = "1.0", country_name = "AT", title = "t", collected_from = NA_character_,
+               collected_to = NA_character_, colectica_url = NA_character_)
+  for (ids in list(95L, 97L, integer())) {  # link 95 replaced by 97, then a page where no link was found
+    files <- lapply(ids, \(i) list(download_id = i, label = "a", size_mb = 1, url = paste0("u", i)))
+    db_upsert(con, "ggs2-at-wave1", c(page, list(files = files)))
+  }
+  r <- db_select(con, downloadable = TRUE)
+  expect_equal(c(r$download_id, r$n_files), c(97L, 1L))
+})

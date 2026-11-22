@@ -101,9 +101,13 @@ The consolidated labels are harmonized over the countries, each country voting o
   countries or input files change.
 - Every step is logged to `data/ggpclient.log`; `options(ggpclient.verbose = TRUE)` shows every line on screen. The
   access link never is logged.
-- Downloads run in one curl session; preprocessing and unpacking run in forked workers (`concurrency` at a time).
-  Windows has no forked workers: there they run one at a time.
-- Consolidating holds one wave in memory (GGS-II wave 1: 185,660 rows x 4,001 columns, about 6 GB).
+- Downloading, unpacking, preprocessing and the Stata export run in background R processes (mirai), `concurrency` at a
+  time, also on Windows. Each worker downloads a file and unpacks it at once. The package must be installed (not
+  just loaded with `devtools::load_all()`): the workers load it.
+- Consolidating streams the files into one parquet file with arrow, one file at a time (GGS-II wave 1: 185,660 rows x
+  4,001 columns, about 2.5 GB at most). `ggp_read(path, lazy = TRUE)` opens a big parquet file as an arrow dataset for
+  dplyr, without reading it.
+- The login is shared with the Python package: `data/.session.json` is read, and written after a login.
 - Three GGS-I files (Australia waves 1 and 2, Norway wave 1) give "404 Not Found" on the portal itself.
 - GGS-II Belarus wave 1 comes in English and Russian: it is in the consolidated file twice. Filter on `ggp_file`.
 

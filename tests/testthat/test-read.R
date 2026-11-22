@@ -87,3 +87,38 @@ test_that("a compressed file with several datafiles is refused, zip or 7z", {
   expect_error(ggp_read(save_raw(make_7z(both), file.path(d, "x.7z"))), "holds 2 datafiles", class = "ggp_error")
   expect_error(ggp_read(save_raw(make_zip(both), file.path(d, "x.zip"))), "holds 2 datafiles", class = "ggp_error")
 })
+
+test_that("a parquet file can be read lazily with arrow and dplyr", {
+  skip_if_not_installed("dplyr")
+  f <- tempfile(fileext = ".parquet")
+  arrow::write_parquet(data.frame(g = c("AT", "NL", "NL"), v = 1:3), f)
+  ds <- ggp_read(f, lazy = TRUE)
+  expect_s3_class(ds, "Dataset")
+  out <- ds |> dplyr::filter(g == "NL") |> dplyr::select(v) |> dplyr::collect()
+  expect_equal(out$v, 2:3)
+  expect_error(ggp_read("x.dta", lazy = TRUE), "parquet", class = "ggp_error")
+})
+
+test_that("stacking streams the files and finds the type that holds all", {
+  d <- withr::local_tempdir()
+  a <- file.path(d, "a.parquet")
+  b <- file.path(d, "b.parquet")
+  arrow::write_parquet(data.frame(id = 1:2, age = c(30, 40), only_a = c("x", "y")), a)
+  arrow::write_parquet(data.frame(id = 3L, age = "n/a", only_b = 1.5), b)
+  files <- data.frame(file = c(a, b), country = c("AT", "NL"), src = c("a", "b"))
+  keep <- kept_columns(files)
+  stack_to_parquet(files, keep, file.path(d, "out.parquet"))
+  out <- ggp_read(file.path(d, "out.parquet"))
+  expect_equal(names(out), c("id", "age", "only_a", "only_b"))  # first appearance
+  expect_equal(out$age, c("30", "40", "n/a"))  # a number and a text column become text
+  expect_equal(out$only_a, c("x", "y", NA))
+  expect_equal(out$only_b, c(NA, NA, 1.5))
+
+  # an all-NA column (written as bool) next to a timestamp column: no cast error, the timestamp wins
+  arrow::write_parquet(data.frame(t = as.POSIXct(c("2020-01-01 10:00:00", "2020-01-02 11:00:00"), tz = "UTC")), a)
+  arrow::write_parquet(data.frame(t = c(NA, NA)), b)
+  stack_to_parquet(files, kept_columns(files), file.path(d, "out2.parquet"))
+  out <- ggp_read(file.path(d, "out2.parquet"))
+  expect_s3_class(out$t, "POSIXct")
+  expect_equal(is.na(out$t), c(FALSE, FALSE, TRUE, TRUE))
+})

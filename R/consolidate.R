@@ -20,9 +20,8 @@
 # GGP country numbers, as in the `country` variable of the GGS-II files (Kazakhstan's file has none: from its names)
 COUNTRY_NUMBERS <- c(AT = 21, CZ = 28, DE = 14, DK = 37, EE = 22, FI = 39, FR = 15, GB = 43, HK = 38, HR = 31, IS = 44,
                      KZ = 34, MD = 35, NL = 18, NO = 20, PL = 26, SE = 29, TW = 41, UY = 40)
-CHUNK <- 250 # columns read together while stacking: the memory used besides the result
-
-parquet_columns <- function(path) nanoparquet::read_parquet_schema(path)$name[-1]
+pq_schema <- function(path) arrow::ParquetFileReader$create(path)$GetSchema()
+parquet_columns <- function(path) pq_schema(path)$names
 
 #' list(name = data.frame(file, country, src)) for the preprocessed files of rows, per series and wave
 #' @noRd
@@ -49,41 +48,94 @@ country_columns <- function(path, country) {
   number <- if (is.na(number)) NULL else number
   own <- names[tolower(names) == "country"][1]
   if (is.null(number) && !is.na(own)) {
-    vals <- unique(stats::na.omit(nanoparquet::read_parquet(path, col_select = own)[[1]]))
+    vals <- unique(stats::na.omit(arrow::read_parquet(path, col_select = own)[[1]]))
     # several countries in one file: no number of its own
     number <- if (length(vals) == 1 && is.numeric(vals) && vals >= 10 && vals < 100) as.integer(vals)
   }
   if (is.null(number)) character() else names[grepl(sprintf("_%d\\d\\d[a-z]*$", number), names, ignore.case = TRUE)]
 }
 
-#' The columns each file keeps, and the stacked data frame of them
+#' The columns each file keeps: all but its country-specific ones
 #' @noRd
-stack_files <- function(files) {
-  keep <- lapply(seq_len(nrow(files)), \(i) {
+kept_columns <- function(files, log = NULL) {
+  lapply(seq_len(nrow(files)), \(i) {
     drop <- country_columns(files$file[i], files$country[i])
     if (length(drop)) {
-      ggp_log("info", "consolidate: leaving out %d %s-specific variables of %s", length(drop), files$country[i],
+      ggp_log(log, "info", "consolidate: leaving out %d %s-specific variables of %s", length(drop), files$country[i],
               basename(files$file[i]))
     }
     setdiff(parquet_columns(files$file[i]), drop)
   })
+}
+
+# column -> type, as text ("double", "string", "timestamp[us, tz=UTC]"): one call into arrow for all columns. Asking
+# arrow column by column takes ~1 ms each, which is 20 s for 30,000 columns.
+schema_types <- function(schema) {
+  lines <- strsplit(schema$ToString(), "\n", fixed = TRUE)[[1]]
+  meta <- match("-- schema metadata --", lines)
+  if (!is.na(meta)) lines <- lines[seq_len(meta - 1L)]
+  at <- regexpr(": ", lines, fixed = TRUE)
+  stats::setNames(substring(lines, at + 2L), substring(lines, 1L, at - 1L))
+}
+
+# the type that holds all of these: the same one, else a number when all are numbers, else text
+unify_type <- function(types) {
+  if (any(types != "bool")) types <- types[types != "bool"] # an all-NA column is written as bool: it must not decide
+  if (length(unique(types)) == 1) {
+    types[[1]]
+  } else if (all(grepl("^(u?int[0-9]+|float|double|halffloat|bool)$", types))) {
+    "double"
+  } else {
+    "string"
+  }
+}
+
+#' The table (whose column types are `mine`, name -> type text) with exactly the columns of `unified`, in its order: a missing column is NA, a column
+#' of another type is cast. `objs` has an arrow type for each type text.
+#' @noRd
+align_table <- function(tab, mine, schema, unified, objs) {
+  have <- names(tab)
+  n_rows <- tab$num_rows
+  made <- list() # an NA column per type, made once
+  na_array <- \(type) made[[type]] <<- made[[type]] %||%
+    arrow::Array$create(rep(NA, n_rows), type = arrow::null())$cast(objs[[type]])
+  cols <- stats::setNames(tab$columns, have)
+  for (n in have[mine[have] != unified[have]]) { # the few columns whose type differs
+    col <- cols[[n]]
+    cols[[n]] <- if (col$null_count == col$length()) na_array(unified[[n]]) else col$cast(objs[[unified[[n]]]])
+  }
+  out <- lapply(names(unified), \(n) cols[[n]] %||% na_array(unified[[n]]))
+  names(out) <- names(unified)
+  do.call(arrow::arrow_table, c(out, list(schema = schema)))
+}
+
+#' Stack the files into one parquet file, one file at a time: the memory used is one file, not the whole wave
+#' @noRd
+stack_to_parquet <- function(files, keep, part) {
+  schemas <- lapply(files$file, pq_schema)
+  file_types <- lapply(schemas, schema_types)
   all <- unique(unlist(keep))
-  n <- vapply(files$file, \(f) nanoparquet::read_parquet_info(f)$num_rows, numeric(1))
-  out <- list()
-  for (chunk in split(all, ceiling(seq_along(all) / CHUNK))) {
-    pieces <- lapply(seq_len(nrow(files)), \(i) {
-      have <- intersect(chunk, keep[[i]])
-      if (length(have)) as.list(nanoparquet::read_parquet(files$file[i], col_select = have)) else list()
-    })
-    for (column in chunk) { # a column a file lacks is NA there; `c()` finds the type that holds both
-      col <- lapply(pieces, `[[`, column)
-      ref <- col[[which(!vapply(col, is.null, logical(1)))[1]]]
-      col <- Map(\(x, k) x %||% ref[rep(NA_integer_, k)], col, n)
-      if (any(vapply(col, is.character, logical(1)))) col <- lapply(col, as.character)
-      out[[column]] <- do.call(c, unname(col))
+  seen <- stats::setNames(vector("list", length(all)), all)
+  for (i in seq_along(keep)) for (n in keep[[i]]) seen[[n]] <- c(seen[[n]], file_types[[i]][[n]])
+  unified <- vapply(seen, unify_type, "")
+  objs <- list(double = arrow::float64(), string = arrow::utf8()) # the others come from a file that has them
+  for (i in seq_along(keep)) {
+    for (t in setdiff(unique(unified[keep[[i]]]), names(objs))) {
+      n <- keep[[i]][match(t, unified[keep[[i]]])]
+      objs[[t]] <- schemas[[i]]$GetFieldByName(n)$type
     }
   }
-  as.data.frame(out, check.names = FALSE, optional = TRUE)
+  schema <- do.call(arrow::schema, lapply(names(unified), \(n) arrow::field(n, objs[[unified[[n]]]])) |>
+                      stats::setNames(NULL) |> (\(f) f)())
+  sink <- arrow::FileOutputStream$create(part)
+  writer <- arrow::ParquetFileWriter$create(schema, sink, properties = arrow::ParquetWriterProperties$create(all))
+  on.exit(sink$close(), add = TRUE)
+  for (i in seq_len(nrow(files))) {
+    tab <- arrow::read_parquet(files$file[i], as_data_frame = FALSE)
+    tab <- tab$SelectColumns(match(keep[[i]], names(tab)) - 1L)
+    writer$WriteTable(align_table(tab, file_types[[i]], schema, unified, objs), chunk_size = max(tab$num_rows, 1L))
+  }
+  writer$Close()
 }
 
 #' True if target was made from exactly these files (its ggp_file column) and is newer than all of them
@@ -94,7 +146,7 @@ is_current <- function(target, files) {
         file.mtime(target) < max(file.mtime(files$file))) {
       return(FALSE)
     }
-    have <- unique(nanoparquet::read_parquet(target, col_select = "ggp_file")[[1]])
+    have <- unique(arrow::read_parquet(target, col_select = "ggp_file")[[1]])
     setequal(have, files$src)
   }, error = \(e) FALSE) # missing or unreadable: make it again
 }
@@ -187,26 +239,26 @@ merged_meta <- function(files, columns) {
 
 #' Stack one group and write <name>.parquet and <name>.meta.json (meta first: a parquet without it is never current)
 #' @noRd
-consolidate_one <- function(name, files, out) {
-  df <- stack_files(files)
+consolidate_one <- function(name, files, out, log = NULL) {
+  keep <- kept_columns(files, log)
   target <- file.path(out, paste0(name, ".parquet"))
   atomic(target, \(part) {
-    nanoparquet::write_parquet(df, part)
-    write_json(merged_meta(files, names(df)), meta_of(target))
+    stack_to_parquet(files, keep, part)
+    write_json(merged_meta(files, unique(unlist(keep))), meta_of(target))
   })
-  ggp_log("info", "consolidated %d files into %s.parquet", nrow(files), name)
+  ggp_log(log, "info", "consolidated %d files into %s.parquet", nrow(files), name)
 }
 
-#' Stack the preprocessed files of `rows` per series and wave. One group after the other: a group is held in memory
+#' Stack the preprocessed files of `rows` per series and wave, one group after the other (each streams file by file)
 #' @noRd
-consolidate_rows <- function(rows, root, pre, out, force = FALSE) {
+consolidate_rows <- function(rows, root, pre, out, force = FALSE, log = NULL) {
   t <- consolidation_todo(rows, root, pre, out, force)
   failed <- failures(character(), character())
   for (name in names(t$todo)) {
-    tryCatch(consolidate_one(name, t$todo[[name]], out), error = \(e) { # say, two columns whose types cannot be combined
+    tryCatch(consolidate_one(name, t$todo[[name]], out, log), error = \(e) { # say, two columns whose types cannot be combined
       unlink(file.path(out, paste0(name, ".parquet.part")))
       failed <<- rbind(failed, failures(name, conditionMessage(e)))
-      ggp_log("error", "consolidate failed %s: %s", name, conditionMessage(e))
+      ggp_log(log, "error", "consolidate failed %s: %s", name, conditionMessage(e))
     })
   }
   new_result("consolidate", length(t$todo) - nrow(failed), t$skipped, failed)
@@ -239,19 +291,22 @@ to_stata <- function(parquet, force = FALSE) {
   TRUE
 }
 
-#' Several groups at a time in forked workers; each file is held whole in memory while it is written
+# the job of one worker: one consolidated file to Stata
+stata_one <- function(x) to_stata(x$parquet, x$force)
+
+#' Several groups at a time in background processes; each file is held whole in memory while it is written
 #' @noRd
-stata_files <- function(parquets, force = FALSE, concurrency = 2) {
-  res <- parallel_map(parquets, \(p) to_stata(p, force), concurrency)
+stata_files <- function(parquets, force = FALSE, concurrency = 1, log = NULL) {
+  res <- parallel_map(lapply(parquets, \(p) list(parquet = p, force = force)), stata_one, concurrency)
   failed <- failures(character(), character())
   done <- 0L
   for (i in seq_along(res)) {
     if (!is.null(res[[i]]$error)) {
       failed <- rbind(failed, failures(basename(parquets[i]), res[[i]]$error))
-      ggp_log("error", "to_stata failed %s: %s", basename(parquets[i]), res[[i]]$error)
+      ggp_log(log, "error", "to_stata failed %s: %s", basename(parquets[i]), res[[i]]$error)
     } else if (res[[i]]$value) {
       done <- done + 1L
-      ggp_log("info", "to_stata: wrote %s", basename(sub("\\.parquet$", ".dta", parquets[i])))
+      ggp_log(log, "info", "to_stata: wrote %s", basename(sub("\\.parquet$", ".dta", parquets[i])))
     }
   }
   new_result("stata", done, length(parquets) - done - nrow(failed), failed)

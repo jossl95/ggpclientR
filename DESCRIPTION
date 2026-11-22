@@ -19,15 +19,15 @@ Imports:
     haven,
     httr2 (>= 1.0.0),
     jsonlite,
-    nanoparquet,
-    parallel,
+    mirai,
+    arrow,
     RSQLite,
     utils,
     xml2
 Suggests:
+    dplyr,
     askpass,
     knitr,
-    mirai,
     reticulate,
     rmarkdown,
     testthat (>= 3.0.0),

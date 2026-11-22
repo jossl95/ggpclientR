@@ -13,7 +13,7 @@ ggp_login(p)
 \code{p}, invisibly. An error of class \code{ggp_login_error} when there is no valid session and no usable link.
 }
 \description{
-Reuses the saved session (\code{data_dir/.session}) if it still works, else logs in with the access link. The link
+Reuses the saved session (\code{data_dir/.session}, or the Python package's \code{.session.json}) if it still works, else logs in with the access link. The link
 comes from the \code{access_url} argument of \code{\link[=ggp_client]{ggp_client()}}, then the \code{GGP_ACCESS_URL} environment variable, and if
 neither is set you are asked for it (input hidden; needs the askpass package). The link works like a password: do
 not put it in a script. A good place is your user-level \verb{~/.Renviron} (\code{usethis::edit_r_environ()}):

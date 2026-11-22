@@ -56,6 +56,8 @@ plain <- function(x) {
 #'
 #' @param path The file.
 #' @param col_select For parquet files: the columns to read (default all). Wide files are large.
+#' @param lazy For parquet files: return an arrow dataset instead of reading the file, to filter and select with dplyr
+#'   and `dplyr::collect()` only what you need. For waves too big for memory.
 #' @param labelled Keep the labels of dta, sav and rds data (default), or return plain codes.
 #' @return A data frame.
 #' @examples
@@ -63,15 +65,21 @@ plain <- function(x) {
 #' df <- ggp_read("ggsii_wave1_at_v_1_1.dta")           # labelled
 #' df$dem01 |> haven::as_factor()
 #' ggp_read("data/download/consolidated/ggs-ii_w1.parquet", col_select = c("ggp_country", "dem01"))
+#' ggp_read("data/download/consolidated/ggs-ii_w1.parquet", lazy = TRUE) |>
+#'   dplyr::filter(ggp_country == "NL") |> dplyr::select(dem01) |> dplyr::collect()
 #' }
 #' @export
-ggp_read <- function(path, col_select = NULL, labelled = TRUE) {
+ggp_read <- function(path, col_select = NULL, labelled = TRUE, lazy = FALSE) {
   type <- file_type(path)
+  if (lazy) {
+    if (type != ".parquet") cli::cli_abort("{.arg lazy} needs a parquet file", class = "ggp_error")
+    return(arrow::open_dataset(path)) # nothing is read until dplyr::collect()
+  }
   if (type %in% ARCHIVES) {
     return(read_compressed(path, col_select, labelled))
   }
   df <- switch(type,
-    ".parquet" = as.data.frame(nanoparquet::read_parquet(path, col_select = col_select)),
+    ".parquet" = as.data.frame(if (is.null(col_select)) arrow::read_parquet(path) else arrow::read_parquet(path, col_select = !!col_select)),
     ".csv" = utils::read.csv(path, check.names = FALSE, stringsAsFactors = FALSE),
     ".dta" = , ".sav" = as.data.frame(read_stat(path), check.names = FALSE, optional = TRUE),
     ".rds" = read_rds(path),

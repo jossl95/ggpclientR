@@ -4,7 +4,7 @@
 \alias{ggp_read}
 \title{Read a datafile}
 \usage{
-ggp_read(path, col_select = NULL, labelled = TRUE)
+ggp_read(path, col_select = NULL, labelled = TRUE, lazy = FALSE)
 }
 \arguments{
 \item{path}{The file.}
@@ -12,6 +12,9 @@ ggp_read(path, col_select = NULL, labelled = TRUE)
 \item{col_select}{For parquet files: the columns to read (default all). Wide files are large.}
 
 \item{labelled}{Keep the labels of dta, sav and rds data (default), or return plain codes.}
+
+\item{lazy}{For parquet files: return an arrow dataset instead of reading the file, to filter and select with dplyr
+and \code{dplyr::collect()} only what you need. For waves too big for memory.}
 }
 \value{
 A data frame.
@@ -31,5 +34,7 @@ values are the codes, as in the parquet files. In \code{.sav} files, values that
 df <- ggp_read("ggsii_wave1_at_v_1_1.dta")           # labelled
 df$dem01 |> haven::as_factor()
 ggp_read("data/download/consolidated/ggs-ii_w1.parquet", col_select = c("ggp_country", "dem01"))
+ggp_read("data/download/consolidated/ggs-ii_w1.parquet", lazy = TRUE) |>
+  dplyr::filter(ggp_country == "NL") |> dplyr::select(dem01) |> dplyr::collect()
 }
 }

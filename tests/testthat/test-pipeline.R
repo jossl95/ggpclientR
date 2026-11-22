@@ -72,9 +72,9 @@ test_that("read, preprocess and consolidate", {
 
   # a country not in COUNTRY_NUMBERS: its number from its own `country` variable, if the file has one country
   f <- tempfile(fileext = ".parquet")
-  nanoparquet::write_parquet(data.frame(country = c(55, 55), v1_5501 = 1:2, v1_2101 = 1:2), f)
+  arrow::write_parquet(data.frame(country = c(55, 55), v1_5501 = 1:2, v1_2101 = 1:2), f)
   expect_equal(country_columns(f, "XX"), "v1_5501")
-  nanoparquet::write_parquet(data.frame(country = c(55, 56), v1_5501 = 1:2), f)
+  arrow::write_parquet(data.frame(country = c(55, 56), v1_5501 = 1:2), f)
   expect_equal(country_columns(f, ""), character())
   expect_length(list.files(d, "\\.part", recursive = TRUE, all.files = TRUE), 0)
 })
@@ -130,7 +130,7 @@ test_that("the GGS pipeline: download, preprocess, consolidate, Stata", {
   meta <- jsonlite::read_json(file.path(cons, "ggs-ii_w1.meta.json"))
   expect_equal(meta$value_labels$age, list(`1` = "young", `2` = "old"))
   expect_false("aut01_2101" %in% names(meta$column_labels))
-  expect_false("aut01_2101" %in% nanoparquet::read_parquet_schema(file.path(cons, "ggs-ii_w1.parquet"))$name)  # country-specific: left out
+  expect_false("aut01_2101" %in% parquet_columns(file.path(cons, "ggs-ii_w1.parquet")))  # country-specific: left out
   st <- haven::read_dta(file.path(cons, "ggs-ii_w1.dta"))
   expect_equal(attr(st$age, "labels"), c(young = 1, old = 2))  # not the "a" of an extended missing value
   expect_equal(attr(st$age, "label"), "Age group")

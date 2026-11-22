@@ -151,7 +151,7 @@ parse_sps <- function(text) {
 #'
 #' Returns `df` and `meta` (`column_labels`, `value_labels` and `missing_ranges` by variable, with $ in names as _).
 #' @noRd
-read_ffs <- function(sps, dat) {
+read_ffs <- function(sps, dat, log = NULL) {
   p <- parse_sps(paste(readLines(sps, encoding = "latin1", warn = FALSE), collapse = "\n"))
   lines <- readLines(dat, encoding = "latin1", warn = FALSE)
   if (length(lines) %% p$records) {
@@ -176,7 +176,7 @@ read_ffs <- function(sps, dat) {
     cli::cli_abort("{.file {sps}}: two variable names collide once $ is replaced", class = "ggp_error")
   }
   if (bad) {
-    ggp_log("warning", "%s: %d cells were not numbers (such as *) and are missing, as SPSS reads them", dat, bad)
+    ggp_log(log, "warning", "%s: %d cells were not numbers (such as *) and are missing, as SPSS reads them", dat, bad)
   }
   df <- as.data.frame(cols, check.names = FALSE, optional = TRUE)
   rename <- \(l) stats::setNames(l[names(l) %in% p$layout$name], var_name(names(l)[names(l) %in% p$layout$name]))
@@ -238,7 +238,7 @@ write_data <- function(df, meta, target, force = FALSE) {
 }
 
 # the sources of a folder: list(path, read) for each FFS dataset; the .sav files when there is no .sps (Estonia)
-ffs_sources <- function(folder) {
+ffs_sources <- function(folder, log = NULL) {
   files <- sort(list.files(folder, recursive = TRUE, full.names = TRUE, all.files = TRUE, no.. = TRUE))
   files <- files[!grepl(".part", basename(files), fixed = TRUE) & !dir.exists(files)]
   by_suffix <- \(s) files[file_type(files) == s]
@@ -249,7 +249,7 @@ ffs_sources <- function(folder) {
     dat <- if (length(same)) same[1] else if (length(dats) == 1) dats else {
       cli::cli_abort("no .dat for {.file {basename(sps)}}", class = "ggp_error")
     }
-    list(path = sps, read = \() read_ffs(sps, dat))
+    list(path = sps, read = \() read_ffs(sps, dat, log))
   })
   if (!length(sources)) {
     sources <- lapply(by_suffix(".sav"), \(sav) list(path = sav, read = \() {
@@ -273,8 +273,8 @@ ffs_sources <- function(folder) {
 #' .sps but with .sav files (Estonia) is converted from those. Several datasets in one folder get the source name
 #' added: <name>_<source>.<ext>. Returns the number of matching output files.
 #' @noRd
-convert_ffs <- function(folder, exts, name = CONVERTED, force = FALSE, out_dir = folder) {
-  sources <- ffs_sources(folder)
+convert_ffs <- function(folder, exts, name = CONVERTED, force = FALSE, out_dir = folder, log = NULL) {
+  sources <- ffs_sources(folder, log)
   n <- 0L
   for (s in sources) {
     base <- if (length(sources) == 1) name else paste0(name, "_", tolower(tools::file_path_sans_ext(basename(s$path))))

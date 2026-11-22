@@ -82,8 +82,8 @@ ggp_client <- function(data_dir = "data", access_url = NULL, concurrency = 8, pr
   p$jar <- file.path(data_dir, ".session") # curl cookie jar: only you may read it
   if (!file.exists(p$jar)) file.create(p$jar)
   Sys.chmod(p$jar, "600")
+  import_session(p)
   p$log <- file.path(data_dir, "ggpclient.log")
-  .state$log <- p$log
   reg.finalizer(p, \(e) try(DBI::dbDisconnect(e$con), silent = TRUE), onexit = TRUE)
   class(p) <- "ggp_client"
   refresh(p)
@@ -96,6 +96,33 @@ print.ggp_client <- function(x, ...) {
   cat(sprintf("<ggp_client> %s: %d files%s\n", x$dir, nrow(ggp_rows(x)),
               if (length(f)) paste0(" (", paste(names(f), vapply(f, paste, "", collapse = ","), sep = " ", collapse = ", "), ")") else ""))
   invisible(x)
+}
+
+# The Python package keeps its session in data_dir/.session.json ([{name, value, domain, path}]), this one in a curl
+# cookie jar (.session). Each reads the other's login: JSON into an empty jar when the client starts, and the jar
+# into JSON after a login. Both files are mode 600.
+import_session <- function(p) {
+  json <- file.path(p$dir, ".session.json")
+  if (file.size(p$jar) > 0 || !file.exists(json)) {
+    return(invisible())
+  }
+  cookies <- tryCatch(jsonlite::read_json(json), error = \(e) list()) # a half-written file: log in again
+  lines <- vapply(cookies, \(c) paste(c$domain, "FALSE", c$path, "FALSE", 0, c$name, c$value, sep = "\t"), "")
+  if (length(lines)) writeLines(c("# Netscape HTTP Cookie File", lines), p$jar)
+  invisible()
+}
+
+export_session <- function(p) {
+  lines <- sub("^#HttpOnly_", "", readLines(p$jar, warn = FALSE))
+  fields <- Filter(\(f) length(f) == 7, strsplit(lines[nzchar(lines) & !startsWith(lines, "#")], "\t"))
+  cookies <- lapply(fields, \(f) list(name = f[6], value = f[7], domain = f[1], path = f[3]))
+  json <- file.path(p$dir, ".session.json")
+  tmp <- paste0(json, ".tmp")
+  file.create(tmp)
+  Sys.chmod(tmp, "600") # before anything is written
+  writeLines(jsonlite::toJSON(cookies, auto_unbox = TRUE), tmp)
+  file.rename(tmp, json)
+  invisible()
 }
 
 # the downloadable rows that match the client's filters
@@ -128,14 +155,14 @@ fetch_text <- function(p, url) {
   for (attempt in 1:3) {
     resp <- tryCatch(httr2::req_perform(with_session(portal_request(url), p)), error = \(e) e)
     if (inherits(resp, "error")) {
-      ggp_log("warning", "%s: %s, attempt %d of 3", url, class(resp)[1], attempt)
+      ggp_log(p$log, "warning", "%s: %s, attempt %d of 3", url, class(resp)[1], attempt)
     } else if (httr2::resp_status(resp) < 500) {
       if (httr2::resp_status(resp) >= 400) {
         cli::cli_abort("HTTP {httr2::resp_status(resp)} for {url}", class = "ggp_error")
       }
       return(httr2::resp_body_string(resp))
     } else {
-      ggp_log("warning", "%s: HTTP %d, attempt %d of 3", url, httr2::resp_status(resp), attempt)
+      ggp_log(p$log, "warning", "%s: HTTP %d, attempt %d of 3", url, httr2::resp_status(resp), attempt)
     }
     if (attempt < 3) Sys.sleep(2^(attempt - 1))
   }
@@ -181,7 +208,7 @@ ggp_sync <- function(p, dump = NULL) {
       slug <- todo[i]
       if (!is.null(pages[[i]]$error)) {
         failed <- rbind(failed, failures(slug, pages[[i]]$error))
-        ggp_log("error", "sync: %s failed: %s", slug, pages[[i]]$error)
+        ggp_log(p$log, "error", "sync: %s failed: %s", slug, pages[[i]]$error)
         next
       }
       if (!is.null(dump)) writeLines(pages[[i]]$value, file.path(dump, paste0(slug, ".html")), useBytes = TRUE)
@@ -201,7 +228,7 @@ ggp_sync <- function(p, dump = NULL) {
   }, error = \(e) {
     msg <- paste0("Harmonized Histories and Additional Datasets skipped: ", conditionMessage(e))
     failed <<- rbind(failed, failures("data access page", msg))
-    ggp_log("warning", "sync: %s", msg)
+    ggp_log(p$log, "warning", "sync: %s", msg)
   })
   for (slug in names(found)) { # the latest version often has its own -vX-Y page too: keep only the latest row
     base <- sub("-v\\d+-\\d+$", "", slug)
@@ -211,7 +238,7 @@ ggp_sync <- function(p, dump = NULL) {
   }
   DBI::dbWithTransaction(p$con, for (slug in sort_slugs(names(found))) db_upsert(p$con, slug, found[[slug]]))
   refresh(p)
-  ggp_log("info", "sync: indexed %d datasets, %d failed", length(found), nrow(failed))
+  ggp_log(p$log, "info", "sync: indexed %d datasets, %d failed", length(found), nrow(failed))
   new_result("sync", length(found), 0L, failed, found = found)
 }
 
@@ -219,7 +246,7 @@ logged_in <- function(p) grepl("/logout/", fetch_text(p, "/form/"), fixed = TRUE
 
 #' Log in to the portal
 #'
-#' Reuses the saved session (`data_dir/.session`) if it still works, else logs in with the access link. The link
+#' Reuses the saved session (`data_dir/.session`, or the Python package's `.session.json`) if it still works, else logs in with the access link. The link
 #' comes from the `access_url` argument of [ggp_client()], then the `GGP_ACCESS_URL` environment variable, and if
 #' neither is set you are asked for it (input hidden; needs the askpass package). The link works like a password: do
 #' not put it in a script. A good place is your user-level `~/.Renviron` (`usethis::edit_r_environ()`):
@@ -230,7 +257,8 @@ logged_in <- function(p) grepl("/logout/", fetch_text(p, "/form/"), fixed = TRUE
 #' @export
 ggp_login <- function(p) {
   if (file.size(p$jar) > 0 && logged_in(p)) {
-    ggp_log("info", "login: saved session reused")
+    ggp_log(p$log, "info", "login: saved session reused")
+    export_session(p)
     return(invisible(p))
   }
   url <- trimws(p$access_url())
@@ -253,7 +281,8 @@ ggp_login <- function(p) {
   if (!logged_in(p)) {
     cli::cli_abort("the access link was not accepted (expired or already used?)", class = "ggp_login_error", call = NULL)
   }
-  ggp_log("info", "login: logged in with the access link, session saved")
+  export_session(p)
+  ggp_log(p$log, "info", "login: logged in with the access link, session saved")
   invisible(p)
 }
 
@@ -268,6 +297,52 @@ disposition_filename <- function(header) {
   }
   m <- re_match("filename\\s*=\\s*(?:\"(?<q>[^\"]*)\"|(?<t>[^;]+))", header, ignore.case = TRUE)
   if (is.null(m)) NULL else trimws(paste0(m[["q"]], m[["t"]]))
+}
+
+#' The job of one worker: download one file to disk and unpack it. Returns list(n, size) or list(error)
+#'
+#' The session cookies are only read (`cookiefile`), so workers never write the cookie jar at the same time.
+#' @noRd
+download_one <- function(j) {
+  cleanup <- \(ok) {
+    unlink(j$part)
+    if (!(ok || j$existed)) unlink(j$dest, recursive = TRUE) # a failed fetch must not delete what an earlier one unpacked
+  }
+  resp <- tryCatch(
+    httr2::request(j$url) |>
+      httr2::req_user_agent("ggpclient/0.1") |>
+      httr2::req_options(cookiefile = j$jar) |>
+      httr2::req_error(is_error = \(r) FALSE) |>
+      httr2::req_perform(path = j$part),
+    error = \(e) e)
+  msg <- if (inherits(resp, "error")) {
+    paste("download failed:", class(resp)[1])
+  } else if (httr2::resp_status(resp) >= 400) {
+    sprintf("HTTP %d", httr2::resp_status(resp))
+  } else if (grepl("text/html", httr2::resp_header(resp, "content-type") %||% "", fixed = TRUE)) {
+    "got a web page instead of a file (no access to this dataset yet?)"
+  }
+  if (!is.null(msg)) {
+    cleanup(FALSE)
+    return(list(error = msg))
+  }
+  name <- disposition_filename(httr2::resp_header(resp, "content-disposition")) %||% j$stem
+  size <- file.size(j$part)
+  n <- tryCatch(
+    if (j$ffs) {
+      unpack_ffs(j$part, name, j$dest, j$stem, j$want, j$metadata, j$convert, j$force, j$converted_dir, j$log)
+    } else {
+      unpack_file(j$part, name, j$dest, j$want, j$metadata, j$force)
+    },
+    error = \(e) e)
+  cleanup(!inherits(n, "error") && n > 0)
+  if (inherits(n, "error")) {
+    return(list(error = conditionMessage(n)))
+  }
+  if (n == 0) {
+    return(list(error = sprintf("no matching files in the archive (looked for %s)", paste(sort(j$want), collapse = ", "))))
+  }
+  list(n = n, size = size)
 }
 
 #' Download the files
@@ -303,7 +378,7 @@ ggp_download <- function(p, ext = NULL, metadata = FALSE, rows = NULL, root = NU
   if (!length(unlist(ext)) || !length(convert)) convert <- "dta"
   meta <- if (metadata) "meta" else character()
   kept <- union(want, meta)
-  ggp_log("info", "download: %d files, keeping %s", nrow(rows), paste(sort(kept), collapse = " "))
+  ggp_log(p$log, "info", "download: %d files, keeping %s", nrow(rows), paste(sort(kept), collapse = " "))
 
   todo <- list()
   skipped <- 0L
@@ -313,84 +388,44 @@ ggp_download <- function(p, ext = NULL, metadata = FALSE, rows = NULL, root = NU
     prev <- if (there) strsplit(r$fetched %|NA|% "", " ")[[1]] else character() # a deleted folder holds nothing
     if (!p$force && there && all(k %in% prev)) {
       skipped <- skipped + 1L
-      ggp_log("info", "skipped %s: already in %s", r$slug, r$local_path)
+      ggp_log(p$log, "info", "skipped %s: already in %s", r$slug, r$local_path)
     } else {
       todo[[length(todo) + 1]] <- list(r = r, k = k, prev = prev)
     }
   }
 
   failed <- failures(character(), character())
-  fail <- \(slug, msg) {
-    failed <<- rbind(failed, failures(slug, msg))
-    ggp_log("error", "failed %s: %s", slug, msg)
-  }
   jobs <- lapply(todo, \(t) {
     r <- t$r
     ffs <- r$project == "FFS"
     stem <- paste0(r$stem, if (r$n_files > 1) paste0("_", r$download_id) else "")
     rel <- if (ffs) r$rel_dir else paste0(r$rel_dir, "/", stem) # FFS: one dataset per country, no folder of its own
     dest <- file.path(root, rel)
-    list(t = t, stem = stem, ffs = ffs, rel = rel, dest = dest, existed = dir.exists(dest),
-         part = file.path(dirname(dest), paste0(stem, ".part")))
+    dir.create(dirname(dest), recursive = TRUE, showWarnings = FALSE)
+    ggp_log(p$log, "info", "downloading %s (file %d)", r$slug, r$download_id)
+    list(t = t, url = abs_url(r$url), jar = p$jar, stem = stem, ffs = ffs, rel = rel, dest = dest, existed = dir.exists(dest),
+         part = file.path(dirname(dest), paste0(stem, ".part")), want = want, metadata = metadata, convert = convert,
+         force = p$force, converted_dir = file.path(p$processed, rel), log = p$log)
   })
-  for (j in jobs) dir.create(dirname(j$dest), recursive = TRUE, showWarnings = FALSE)
-  for (j in jobs) ggp_log("info", "downloading %s (file %d)", j$t$r$slug, j$t$r$download_id)
 
-  # the downloads, `concurrency` at a time, straight to disk
-  pool <- curl::new_pool(total_con = p$concurrency, host_con = p$concurrency)
-  resps <- httr2::req_perform_parallel(lapply(jobs, \(j) with_session(portal_request(j$t$r$url), p)),
-                                       paths = vapply(jobs, `[[`, "", "part"), pool = pool, on_error = "continue",
-                                       progress = FALSE)
-  cleanup <- \(j, ok) {
-    unlink(j$part)
-    if (!(ok || j$existed)) unlink(j$dest, recursive = TRUE) # a failed fetch must not delete what an earlier one unpacked
-  }
-  ready <- list()
+  # each worker downloads its file and unpacks it at once, `concurrency` at a time: no pile of archives on disk
+  res <- parallel_map(jobs, download_one, p$concurrency)
+  done <- 0L
   for (i in seq_along(jobs)) {
     j <- jobs[[i]]
-    resp <- resps[[i]]
-    msg <- if (!inherits(resp, "httr2_response")) {
-      "download failed (no response)"
-    } else if (httr2::resp_status(resp) >= 400) {
-      sprintf("HTTP %d", httr2::resp_status(resp))
-    } else if (grepl("text/html", httr2::resp_header(resp, "content-type") %||% "", fixed = TRUE)) {
-      "got a web page instead of a file (no access to this dataset yet?)"
-    }
+    out <- res[[i]]$value
+    msg <- res[[i]]$error %||% out$error
     if (!is.null(msg)) {
-      cleanup(j, FALSE)
-      fail(j$t$r$slug, msg)
-    } else {
-      j$name <- disposition_filename(httr2::resp_header(resp, "content-disposition")) %||% j$stem
-      j$size <- file.size(j$part)
-      ready[[length(ready) + 1]] <- j
-    }
-  }
-
-  # unpacking (and for FFS the conversion), in worker processes
-  res <- parallel_map(ready, \(j) {
-    if (j$ffs) {
-      unpack_ffs(j$part, j$name, j$dest, j$stem, want, metadata, convert, p$force, file.path(p$processed, j$rel))
-    } else {
-      unpack_file(j$part, j$name, j$dest, want, metadata, p$force)
-    }
-  }, p$concurrency)
-  done <- 0L
-  for (i in seq_along(ready)) {
-    j <- ready[[i]]
-    n <- res[[i]]$value %||% 0L
-    cleanup(j, n > 0)
-    if (!is.null(res[[i]]$error)) {
-      fail(j$t$r$slug, res[[i]]$error)
-    } else if (n == 0) {
-      fail(j$t$r$slug, sprintf("no matching files in the archive (looked for %s)", paste(sort(want), collapse = ", ")))
+      failed <- rbind(failed, failures(j$t$r$slug, msg))
+      ggp_log(p$log, "error", "failed %s: %s", j$t$r$slug, msg)
     } else {
       keep <- c(j$t$k, if (identical(j$rel, j$t$r$local_path)) j$t$prev)
       db_mark_downloaded(p$con, j$t$r$download_id, j$rel, keep)
       done <- done + 1L
-      ggp_log("info", "downloaded %s: %.1f MB, %d files kept in %s", j$t$r$slug, j$size / 1e6, n, j$rel)
+      ggp_log(p$log, "info", "downloaded %s: %.1f MB, %d files kept in %s", j$t$r$slug, out$size / 1e6, out$n, j$rel)
     }
   }
-  ggp_log("info", "download: %d done, %d skipped, %d failed", done, skipped, nrow(failed))
+  ggp_log(p$log, "info", "download: %d done, %d skipped, %d failed", done, skipped, nrow(failed))
   refresh(p) # local_path and fetched changed
   new_result("download", done, skipped, failed)
 }
@@ -413,7 +448,7 @@ ggp_download <- function(p, ext = NULL, metadata = FALSE, rows = NULL, root = NU
 #' @export
 ggp_preprocess <- function(p, rows = NULL, async = FALSE) {
   if (async) return(async_step(p, "ggp_preprocess", list(rows = rows)))
-  preprocess_rows(rows %||% p$rows, p$downloads, p$processed, p$force, p$concurrency)
+  preprocess_rows(rows %||% p$rows, p$downloads, p$processed, p$force, p$concurrency, p$log)
 }
 
 #' Stack the countries of each round and wave
@@ -440,7 +475,7 @@ ggp_preprocess <- function(p, rows = NULL, async = FALSE) {
 #' @export
 ggp_consolidate <- function(p, rows = NULL, async = FALSE) {
   if (async) return(async_step(p, "ggp_consolidate", list(rows = rows)))
-  consolidate_rows(rows %||% p$rows, p$downloads, p$processed, p$consolidated, p$force)
+  consolidate_rows(rows %||% p$rows, p$downloads, p$processed, p$consolidated, p$force, p$log)
 }
 
 #' Write the consolidated data as Stata files
@@ -462,7 +497,7 @@ ggp_stata <- function(p, rows = NULL, concurrency = 1, async = FALSE) {
   if (async) return(async_step(p, "ggp_stata", list(rows = rows, concurrency = concurrency)))
   names <- names(consolidation_groups(rows %||% p$rows, p$downloads, p$processed))
   files <- file.path(p$consolidated, paste0(names, ".parquet"))
-  stata_files(files[file.exists(files)], p$force, concurrency)
+  stata_files(files[file.exists(files)], p$force, concurrency, p$log)
 }
 
 #' Convert one FFS dataset to Stata or SPSS
