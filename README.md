@@ -6,8 +6,9 @@ them to parquet with their labels, and stacks the countries of each round and wa
 
 Documentation: **https://jossl95.github.io/ggpclientR/** (source in [`docs/`](docs/), built with Quarto).
 
-This is the R version of the Python package [ggp_client](https://github.com/jossl95/ggp_client): the same steps, the
-same folders, the same files. No Python needed.
+This is the R version. The Python package [ggp_client](https://github.com/jossl95/ggp_client)
+([docs](https://jossl95.github.io/ggp_client/)) does the same steps, with the same folders and the same files. No Python
+needed.
 
 ## Getting started
 
@@ -17,13 +18,14 @@ library(ggpclient)
 
 p <- ggp_client(project = "ggs", round = 2)   # data_dir defaults to "data"
 p |> ggp_sync()                               # index the portal into data/catalogue.sqlite
-ggp_rows(p)                                   # what is there: one row per file
+ggp_rows(p)                                   # what is there: one row per file (the same filters work everywhere)
 ```
 
 Downloading needs the access link the portal e-mails you. `p |> ggp_login()` asks you to paste it (the input is
 hidden), then the session is saved in `data/.session.json` and reused; syncing and downloading log in by themselves when
 needed. The link is valid for seven days, so it is only asked for: there is no environment variable for it, and it is
-never stored or logged. Do not type it in a script, where it stays in your history.
+never stored or logged. Treat it like a password: do not commit it or type it in a script, where it stays in your
+history.
 
 ## Use case: GGS-II in Stata format, consolidated to parquet
 
@@ -49,10 +51,11 @@ download/consolidated/ggs-ii_w1.parquet                                         
 download/consolidated/ggs-ii_w1.meta.json                                       their harmonized labels
 ```
 
-The columns `ggp_country`, `ggp_round`, `ggp_wave`, `ggp_version` and `ggp_file` say where each row came from.
-Country-specific variables (named after the GGP country number, such as `aut01a_2101` for Austria) are left out of the
-consolidated file, but kept in the per-country files. `p |> ggp_stata()` also writes each consolidated dataset as a
-labelled Stata file (`ggs-ii_w1.dta`); `download_ggs.R` does all of this for both GGS rounds.
+GGS-II wave 1 is 185,660 rows of 20 countries and 4,001 variables. The columns `ggp_country`, `ggp_round`,
+`ggp_wave`, `ggp_version` and `ggp_file` say where each row came from. Country-specific variables (named after the GGP
+country number, such as `aut01a_2101` for Austria) are left out of the consolidated file, but kept in the per-country
+files. `p |> ggp_stata()` also writes each consolidated dataset as a labelled Stata file (`ggs-ii_w1.dta`);
+`Rscript download_ggs.R` does all of this for both GGS rounds.
 
 ## Labels (meta.json)
 
@@ -74,11 +77,12 @@ The consolidated labels are harmonized over the countries, each country voting o
 
 - every variable has one label: the one most countries use;
 - every value has exactly one label: the one more than half of the countries use (ISO 203 is "Czechia", not "Czech
-  Republic"); if there is no majority, all labels joined into one, most used first. Several values may share a label;
+  Republic"); if there is no majority, all labels joined into one, most used first (`region` 1:
+  "East Austria / East Midlands / Pannonian Croatia / ..."). Several values may share a label;
 - codes are never changed;
 - `original_labels` lists, for every value countries label differently, each wording and the files that use it.
 
-## Labelled data, rds, background steps
+## Reading data: labelled, rds, background steps
 
 - `ggp_read("file.dta")` (also `.sav` and `.rds`) uses haven and returns labelled columns; `labelled = FALSE` gives the
   codes. `.rds` files are datafiles like dta and sav (`ext = "rds"`), also when compressed on their own as `data.rds.7z`.
@@ -90,7 +94,7 @@ The consolidated labels are harmonized over the countries, each country voting o
 
 - **FFS** comes as fixed-width `.dat` with SPSS syntax (`.sps`) and frequency tables (`.tbl`), kept in
   `download/raw/ffs/<cc>/`. The download also converts it, with labels, to `download/processed/ffs/<cc>/converted_data.dta`
-  (`ext = "sav"` for `.sav`). One dataset by hand: `ggp_convert_ffs("AUSTRIA.SPS", ext = "dta")`.
+  (`ext = "sav"` for `.sav`). In SPSS you can run the `.sps` itself. One dataset by hand: `ggp_convert_ffs("AUSTRIA.SPS", ext = "dta")`.
 - **Harmonized Histories and Additional Datasets** are listed only after login; `ggp_sync()` logs in to index them
   (`project = "hh"` or `"other"`).
 - **Filters** (`project`, `round`, `wave`, `country`, `ids`, `all_versions` in `ggp_client()`) apply to every step.
@@ -104,13 +108,15 @@ The consolidated labels are harmonized over the countries, each country voting o
 - Every step is logged to `data/ggpclient.log`; `options(ggpclient.verbose = TRUE)` shows every line on screen. The
   access link never is logged.
 - Downloading, unpacking, preprocessing and the Stata export run in background R processes (mirai), `concurrency` at a
-  time, also on Windows. They stay for the next step; `ggp_stop_workers()` ends them. Each worker downloads a file and unpacks it at once. The package must be installed (not
-  just loaded with `devtools::load_all()`): the workers load it.
+  time, also on Windows. They stay for the next step; `ggp_stop_workers()` ends them. Each worker downloads a file and
+  unpacks it at once. The package must be installed (not just loaded with `devtools::load_all()`): the workers load it.
 - Consolidating streams the files into one parquet file: with DuckDB for waves up to about 4 GB, with arrow (one file at
-  a time, about 2.5 GB at most) for wider ones such as GGS-II wave 1 (185,660 rows x 4,001 columns). `ggp_read(path, lazy = TRUE)` opens a big parquet file as an arrow dataset for
-  dplyr, without reading it.
+  a time, about 2.5 GB at most) for wider ones such as GGS-II wave 1. `ggp_read(path, lazy = TRUE)` opens a big parquet file as an arrow
+  dataset for dplyr, without reading it.
 - The login is shared with the Python package: `data/.session.json` is read, and written after a login.
 - Three GGS-I files (Australia waves 1 and 2, Norway wave 1) give "404 Not Found" on the portal itself.
 - GGS-II Belarus wave 1 comes in English and Russian: it is in the consolidated file twice. Filter on `ggp_file`.
+- Labelled Stata files are large (GGS-II wave 1: 3.3 GB, against 36 MB as parquet); `compress` in Stata helps.
+- Some GGS files have broken text encoding in their labels; they are read as latin1, as their `.sav` versions are.
 
 Run the tests with `devtools::test()`.
