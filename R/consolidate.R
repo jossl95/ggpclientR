@@ -68,6 +68,33 @@ kept_columns <- function(files, log = NULL) {
   })
 }
 
+#' Stack the files into one parquet file with DuckDB (arrow when two column names differ only in case, or when the result
+#' is bigger than DuckDB's memory, option ggpclient.memory_gb, 6 by default): `UNION ALL BY NAME` matches the columns by name, fills what a file
+#' lacks with NA and finds the type that holds all of a column's types; DuckDB streams, so the memory used is small.
+#' @noRd
+stack_to_parquet <- function(files, keep, part) {
+  gb <- getOption("ggpclient.memory_gb", 6) # what DuckDB may use
+  lower <- lapply(keep, tolower)
+  cells <- sum(vapply(files$file, \(f) arrow::ParquetFileReader$create(f)$num_rows, numeric(1))) * length(unique(unlist(keep)))
+  if (any(lengths(lower) != lengths(lapply(lower, unique))) || # two columns of a file that differ only in case
+      any(tapply(unlist(keep), tolower(unlist(keep)), \(n) length(unique(n))) > 1) || # or the same name in another case
+      cells * 8 > gb * 0.7 * 1e9) { # the result (it must keep the order of the files) would not fit in DuckDB's memory
+    return(stack_with_arrow(files, keep, part)) # DuckDB merges names that differ in case, and thrashes on a wave too big
+  }
+  con <- DBI::dbConnect(duckdb::duckdb(shared_home = FALSE))
+  on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
+  # the result keeps the order of the files, so DuckDB buffers it: cap that, it spills to disk beyond
+  DBI::dbExecute(con, sprintf("SET memory_limit = '%dGB'", as.integer(gb)))
+  DBI::dbExecute(con, sprintf("SET temp_directory = %s", DBI::dbQuoteString(con, paste0(part, ".tmp"))))
+  selects <- vapply(seq_len(nrow(files)), \(i) {
+    sprintf("SELECT %s FROM read_parquet(%s)", paste(DBI::dbQuoteIdentifier(con, keep[[i]]), collapse = ", "),
+            DBI::dbQuoteString(con, files$file[i]))
+  }, "")
+  DBI::dbExecute(con, sprintf("COPY (%s) TO %s (FORMAT parquet)", paste(selects, collapse = "\nUNION ALL BY NAME\n"),
+                              DBI::dbQuoteString(con, part)))
+  invisible()
+}
+
 # column -> type, as text ("double", "string", "timestamp[us, tz=UTC]"): one call into arrow for all columns. Asking
 # arrow column by column takes ~1 ms each, which is 20 s for 30,000 columns.
 schema_types <- function(schema) {
@@ -109,9 +136,9 @@ align_table <- function(tab, mine, schema, unified, objs) {
   do.call(arrow::arrow_table, c(out, list(schema = schema)))
 }
 
-#' Stack the files into one parquet file, one file at a time: the memory used is one file, not the whole wave
+#' The same with arrow, one file at a time: for columns whose names differ only in case, which DuckDB cannot tell apart
 #' @noRd
-stack_to_parquet <- function(files, keep, part) {
+stack_with_arrow <- function(files, keep, part) {
   schemas <- lapply(files$file, pq_schema)
   file_types <- lapply(schemas, schema_types)
   all <- unique(unlist(keep))

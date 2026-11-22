@@ -31,20 +31,40 @@ ggp_log <- function(log, level, msg, ...) {
   invisible(msg)
 }
 
+.workers <- new.env() # the number of background processes that are running, if any
+WORKERS <- "ggpclient" # their mirai compute profile
+
+#' Stop the background processes
+#'
+#' Downloading, unpacking, preprocessing and the Stata export run in background R processes (mirai). They start when
+#' first needed and stay for the next step, so that a step does not pay for starting them. They end with your R session;
+#' call this to stop them earlier, for example after installing a new version of the package.
+#'
+#' @return `NULL`, invisibly.
+#' @export
+ggp_stop_workers <- function() {
+  mirai::daemons(0, .compute = WORKERS)
+  .workers$n <- NULL
+  invisible()
+}
+
+utils::globalVariables("fun") # the function the daemons call: sent along as `fun`
+
 #' `f` over each item of x in `cores` background R processes (mirai daemons; also on Windows). A failure comes back as
 #' list(error = message), not as a stop. `f` and what it calls must be in the package: the daemons load it.
 #' @noRd
-utils::globalVariables("fun") # the function the daemons call: sent along as `fun`
-
 parallel_map <- function(x, f, cores) {
   if (!length(x)) {
     return(list())
   }
-  profile <- "ggpclient"
-  mirai::daemons(max(1L, min(as.integer(cores), length(x))), .compute = profile)
-  on.exit(mirai::daemons(0, .compute = profile), add = TRUE)
+  n <- max(1L, min(as.integer(cores), length(x)))
+  if (!identical(.workers$n, n) || mirai::status(.compute = WORKERS)$connections != n) { # not running, or for another count
+    mirai::daemons(0, .compute = WORKERS)
+    mirai::daemons(n, .compute = WORKERS)
+    .workers$n <- n
+  }
   res <- mirai::mirai_map(x, \(item) tryCatch(list(value = fun(item)), error = \(e) list(error = conditionMessage(e))),
-                         fun = f, .compute = profile)[]
+                         fun = f, .compute = WORKERS)[]
   lapply(res, \(r) if (mirai::is_error_value(r)) list(error = paste("the worker process stopped:", as.character(r))) else r)
 }
 

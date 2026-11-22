@@ -1,0 +1,81 @@
+{
+ "columns": [
+  "cc"
+ ],
+ "files": [
+  {
+   "country": "AT",
+   "meta": {
+    "column_labels": {
+     "cc": "Country",
+     "gone": "x"
+    },
+    "value_labels": {
+     "cc": {
+      "-1": "Don't know",
+      "1": "East Austria",
+      "203": "Czechia",
+      "3": "elementary school"
+     }
+    }
+   },
+   "src": "ggs/at/AT.dta"
+  },
+  {
+   "country": "HR",
+   "meta": {
+    "column_labels": {
+     "cc": "Country",
+     "gone": "x"
+    },
+    "value_labels": {
+     "cc": {
+      "-1": "Don't know",
+      "1": "Pannonian Croatia",
+      "203": "czechia ",
+      "4": "Elementary school"
+     }
+    }
+   },
+   "src": "ggs/hr/HR.dta"
+  },
+  {
+   "country": "GB",
+   "meta": {
+    "column_labels": {
+     "cc": "Land",
+     "gone": "x"
+    },
+    "value_labels": {
+     "cc": {
+      "-1": "don't know",
+      "1": "East Midlands",
+      "203": "Czech Republic"
+     }
+    }
+   },
+   "src": "ggs/gb/GB.dta"
+  },
+  {
+   "country": "GB",
+   "meta": {
+    "column_labels": {
+     "cc": "Страна",
+     "gone": "x"
+    },
+    "value_labels": {
+     "cc": {
+      "-1": "Не знаю",
+      "203": "Чехия"
+     }
+    }
+   },
+   "src": "ggs/gb/GB_RU.dta"
+  },
+  {
+   "country": "NL",
+   "meta": null,
+   "src": "NL.csv"
+  }
+ ]
+}

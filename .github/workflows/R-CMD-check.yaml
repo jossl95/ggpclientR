@@ -10,6 +10,10 @@ jobs:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
+      # the shared fixtures must be the Python package's: the contract both test against
+      - uses: actions/checkout@v4
+        with: {repository: jossl95/ggp_client, path: ggp_client_python}
+      - run: diff -r -x README.md ggp_client_python/tests/fixtures/portal tests/testthat/fixtures/portal && diff -r ggp_client_python/tests/fixtures/expected tests/testthat/fixtures/expected && diff -r ggp_client_python/tests/fixtures/labels tests/testthat/fixtures/labels && diff -r ggp_client_python/tests/fixtures/ffs tests/testthat/fixtures/ffs
       # the Python package ggp_client, so that the equivalence test (tests/testthat/test-equivalence.R) runs
       - uses: actions/setup-python@v5
         with: {python-version: "3.12"}

@@ -1,0 +1,55 @@
+{
+ "column_labels": {
+  "COUNTRY": "ISO country code",
+  "HHNUM": "Household identification no.",
+  "V004_01": "Born in Nieder\"sterreich",
+  "WEIGHT": "Caseweight in US$"
+ },
+ "columns": [
+  "COUNTRY",
+  "HHNUM",
+  "WEIGHT",
+  "V004_01",
+  "V005_01"
+ ],
+ "data": {
+  "COUNTRY": [
+   23,
+   23
+  ],
+  "HHNUM": [
+   "A0001",
+   "A0002"
+  ],
+  "V004_01": [
+   1,
+   98
+  ],
+  "V005_01": [
+   1.0,
+   null
+  ],
+  "WEIGHT": [
+   0.7035,
+   1.2
+  ]
+ },
+ "missing_ranges": {
+  "V004_01": [
+   98
+  ]
+ },
+ "value_labels": {
+  "COUNTRY": {
+   "23": "United States"
+  },
+  "V004_01": {
+   "1": "One",
+   "98": "Missing value"
+  },
+  "V005_01": {
+   "1": "One",
+   "98": "Missing value"
+  }
+ }
+}

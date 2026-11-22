@@ -6,5 +6,6 @@
 ^run-tests\.sh$
 ^README\.md$
 ^_pkgdown\.yml$
-^\.session$
+^\.session\.json$
 ^\.Renviron$
+^docs$

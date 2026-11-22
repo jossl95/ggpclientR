@@ -60,8 +60,8 @@ test_that("sync indexes the catalogue, download unpacks it, and every step can b
   got <- DBI::dbGetQuery(con, "SELECT local_path, fetched FROM file WHERE download_id = 95")
   expect_equal(unlist(got, use.names = FALSE), c("ggs-ii/w1/at/ggs2_w1_at_v1.1", "csv dta sav"))
   expect_length(list.files(d, pattern = "\\.part$", recursive = TRUE, all.files = TRUE), 0)
-  expect_equal(format(file.mode(file.path(d, ".session"))), "600")
-  expect_false(grepl("s3cr3t", read_text(file.path(d, ".session"))))
+  expect_equal(format(file.mode(file.path(d, ".session.json"))), "600")
+  expect_false(grepl("s3cr3t", read_text(file.path(d, ".session.json"))))
 
   again <- function(force = FALSE, ...) {  # a new client: no access url, the saved session is enough
     q <- ggp_client(d, force = force)
@@ -132,7 +132,7 @@ test_that("the link is asked for only when needed", {
   local_mocked_bindings(askpass = \(prompt) { asked <<- asked + 1; paste0("  ", token(), "\n") }, .package = "askpass")
   ggp_login(ggp_client(d))  # no argument, no environment variable, no session: asked once
   expect_equal(asked, 1)
-  expect_true(file.size(file.path(d, ".session")) > 0)
+  expect_true(file.size(file.path(d, ".session.json")) > 0)
   ggp_login(ggp_client(d))  # the saved session works: not asked again
   expect_equal(asked, 1)
 })
@@ -149,10 +149,10 @@ test_that("a broken session file means log in again", {
   local_portal()
   d <- withr::local_tempdir()
   local_mocked_bindings(askpass = \(prompt) NULL, .package = "askpass")
-  writeLines("this is not a cookie jar", file.path(d, ".session"))  # a write that was cut off
-  Sys.chmod(file.path(d, ".session"), "644")
+  writeLines("this is not a cookie jar", file.path(d, ".session.json"))  # a write that was cut off
+  Sys.chmod(file.path(d, ".session.json"), "644")
   ggp_login(ggp_client(d, token()))
-  expect_equal(format(file.mode(file.path(d, ".session"))), "600")
+  expect_equal(format(file.mode(file.path(d, ".session.json"))), "600")
   ggp_login(ggp_client(d))  # and the new one is valid
 })
 

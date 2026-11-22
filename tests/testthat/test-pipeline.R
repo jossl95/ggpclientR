@@ -53,7 +53,7 @@ test_that("read, preprocess and consolidate", {
   r <- consolidate_rows(rows, root, pre, out)
   expect_equal(c(r$done, r$skipped, nrow(r$failed)), c(1, 0, 0))
   w1 <- ggp_read(file.path(out, "ggs-ii_w1.parquet"))
-  expect_equal(sort(w1$age), sort(c("30", "40", "n/a")))  # a number and a text column become text
+  expect_equal(sort(w1$age), sort(c("30.0", "40.0", "n/a")))  # a number and a text column become text
   expect_equal(sum(is.na(w1$x)), 2L)
   expect_false(any(c("aut01_2101", "dem07_1801") %in% names(w1)))  # country-specific: left out
   expect_equal(w1$att12_2101[w1$ggp_country == "NL"], 7)  # Austria's number, not NL's

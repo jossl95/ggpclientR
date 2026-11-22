@@ -79,12 +79,15 @@ ggp_client <- function(data_dir = "data", access_url = NULL, concurrency = 8, pr
   p$filters <- list(project = project, round = round, wave = wave, country = country, ids = ids,
                     all_versions = all_versions)
   p$con <- db_connect(file.path(data_dir, "catalogue.sqlite"))
-  p$jar <- file.path(data_dir, ".session") # curl cookie jar: only you may read it
-  if (!file.exists(p$jar)) file.create(p$jar)
+  p$jar <- tempfile("ggp-session-") # curl's cookie jar, rebuilt from data_dir/.session.json: only you may read it
+  file.create(p$jar)
   Sys.chmod(p$jar, "600")
   import_session(p)
   p$log <- file.path(data_dir, "ggpclient.log")
-  reg.finalizer(p, \(e) try(DBI::dbDisconnect(e$con), silent = TRUE), onexit = TRUE)
+  reg.finalizer(p, \(e) {
+    try(DBI::dbDisconnect(e$con), silent = TRUE)
+    unlink(e$jar)
+  }, onexit = TRUE)
   class(p) <- "ggp_client"
   refresh(p)
   p
@@ -98,12 +101,12 @@ print.ggp_client <- function(x, ...) {
   invisible(x)
 }
 
-# The Python package keeps its session in data_dir/.session.json ([{name, value, domain, path}]), this one in a curl
-# cookie jar (.session). Each reads the other's login: JSON into an empty jar when the client starts, and the jar
-# into JSON after a login. Both files are mode 600.
+# The login is kept in data_dir/.session.json ([{name, value, domain, path}]), the file the Python package uses too.
+# curl wants a cookie jar: it is rebuilt from the JSON when the client starts, and the JSON is written after a login.
+# Both files are mode 600.
 import_session <- function(p) {
   json <- file.path(p$dir, ".session.json")
-  if (file.size(p$jar) > 0 || !file.exists(json)) {
+  if (!file.exists(json)) {
     return(invisible())
   }
   cookies <- tryCatch(jsonlite::read_json(json), error = \(e) list()) # a half-written file: log in again
@@ -246,7 +249,7 @@ logged_in <- function(p) grepl("/logout/", fetch_text(p, "/form/"), fixed = TRUE
 
 #' Log in to the portal
 #'
-#' Reuses the saved session (`data_dir/.session`, or the Python package's `.session.json`) if it still works, else
+#' Reuses the saved session (`data_dir/.session.json`, which the Python package uses too) if it still works, else
 #' asks you to paste the access link the portal e-mails you. The input is hidden. The link is valid for seven days and
 #' works like a password, so it is only asked for: there is no environment variable for it, it is not stored, and it is
 #' never logged. The saved session is what is reused. Syncing and downloading log in by themselves when needed.

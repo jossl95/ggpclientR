@@ -17,6 +17,7 @@ Imports:
     cli,
     curl,
     DBI,
+    duckdb,
     haven,
     httr2 (>= 1.0.0),
     jsonlite,

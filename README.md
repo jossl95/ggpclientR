@@ -4,6 +4,8 @@ Download data from the [GGP data portal](https://www.ggp-i.org) (Generations and
 FFS, Harmonized Histories and Additional Datasets. It indexes the portal, downloads and unpacks the files, converts
 them to parquet with their labels, and stacks the countries of each round and wave into one dataset.
 
+Documentation: **https://jossl95.github.io/ggpclientR/** (source in [`docs/`](docs/), built with Quarto).
+
 This is the R version of the Python package [ggp_client](https://github.com/jossl95/ggp_client): the same steps, the
 same folders, the same files. No Python needed.
 
@@ -19,7 +21,7 @@ ggp_rows(p)                                   # what is there: one row per file
 ```
 
 Downloading needs the access link the portal e-mails you. `p |> ggp_login()` asks you to paste it (the input is
-hidden), then the session is saved in `data/.session` and reused; syncing and downloading log in by themselves when
+hidden), then the session is saved in `data/.session.json` and reused; syncing and downloading log in by themselves when
 needed. The link is valid for seven days, so it is only asked for: there is no environment variable for it, and it is
 never stored or logged. Do not type it in a script, where it stays in your history.
 
@@ -102,10 +104,10 @@ The consolidated labels are harmonized over the countries, each country voting o
 - Every step is logged to `data/ggpclient.log`; `options(ggpclient.verbose = TRUE)` shows every line on screen. The
   access link never is logged.
 - Downloading, unpacking, preprocessing and the Stata export run in background R processes (mirai), `concurrency` at a
-  time, also on Windows. Each worker downloads a file and unpacks it at once. The package must be installed (not
+  time, also on Windows. They stay for the next step; `ggp_stop_workers()` ends them. Each worker downloads a file and unpacks it at once. The package must be installed (not
   just loaded with `devtools::load_all()`): the workers load it.
-- Consolidating streams the files into one parquet file with arrow, one file at a time (GGS-II wave 1: 185,660 rows x
-  4,001 columns, about 2.5 GB at most). `ggp_read(path, lazy = TRUE)` opens a big parquet file as an arrow dataset for
+- Consolidating streams the files into one parquet file: with DuckDB for waves up to about 4 GB, with arrow (one file at
+  a time, about 2.5 GB at most) for wider ones such as GGS-II wave 1 (185,660 rows x 4,001 columns). `ggp_read(path, lazy = TRUE)` opens a big parquet file as an arrow dataset for
   dplyr, without reading it.
 - The login is shared with the Python package: `data/.session.json` is read, and written after a login.
 - Three GGS-I files (Australia waves 1 and 2, Norway wave 1) give "404 Not Found" on the portal itself.

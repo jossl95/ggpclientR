@@ -1,0 +1,235 @@
+{
+ "access": {
+  "hh-harmonized-histories": {
+   "colectica_url": null,
+   "collected_from": null,
+   "collected_to": null,
+   "country_name": null,
+   "files": [
+    {
+     "download_id": 1,
+     "label": "Part 1",
+     "size_mb": null,
+     "url": "https://www.ggp-i.org/form/download/1/"
+    },
+    {
+     "download_id": 84,
+     "label": "Part 2",
+     "size_mb": null,
+     "url": "https://www.ggp-i.org/form/download/84/"
+    }
+   ],
+   "other_versions": [],
+   "page_url": "https://www.ggp-i.org/form/",
+   "title": "Harmonized Histories",
+   "version": null
+  },
+  "other-nkps": {
+   "colectica_url": null,
+   "collected_from": null,
+   "collected_to": null,
+   "country_name": null,
+   "files": [
+    {
+     "download_id": 61,
+     "label": "NKPS",
+     "size_mb": null,
+     "url": "https://www.ggp-i.org/form/download/61/"
+    }
+   ],
+   "other_versions": [],
+   "page_url": "https://www.ggp-i.org/form/",
+   "title": "NKPS",
+   "version": null
+  }
+ },
+ "catalog": [
+  "ggs2-at-wave1",
+  "ggs2-nl-wave1",
+  "upcoming-ggs2-fr-wave1",
+  "ffs-us-thefamilyandfertilitysurvey"
+ ],
+ "datasets": {
+  "ffs-us-thefamilyandfertilitysurvey": {
+   "colectica_url": null,
+   "collected_from": null,
+   "collected_to": null,
+   "country_name": "USA",
+   "files": [
+    {
+     "download_id": 7,
+     "label": "USA FFS",
+     "size_mb": 0.78,
+     "url": "https://www.ggp-i.org/form/download/7/"
+    }
+   ],
+   "other_versions": [],
+   "title": "USA – The Family and Fertility Survey",
+   "version": "1.0"
+  },
+  "ggs2-at-wave1": {
+   "colectica_url": "https://ggp.colectica.org/item/int.ggp/c7fc",
+   "collected_from": "2022-10-31",
+   "collected_to": "2023-03-12",
+   "country_name": "Austria",
+   "files": [
+    {
+     "download_id": 95,
+     "label": "Austria - Wave 1 (version 1.1) v1.1",
+     "size_mb": 15.3,
+     "url": "https://www.ggp-i.org/form/download/95/"
+    }
+   ],
+   "other_versions": [
+    "ggs2-at-wave1-v1-0",
+    "ggs2-at-wave1-v1-1"
+   ],
+   "title": "Austria – Wave 1 v1.1",
+   "version": "1.1"
+  },
+  "ggs2-at-wave1-v1-0": {
+   "colectica_url": null,
+   "collected_from": null,
+   "collected_to": null,
+   "country_name": "Austria",
+   "files": [
+    {
+     "download_id": 41,
+     "label": "Austria - Wave 1 (version 1.0) v1.0",
+     "size_mb": 14.9,
+     "url": "https://www.ggp-i.org/form/download/41/"
+    }
+   ],
+   "other_versions": [
+    "ggs2-at-wave1"
+   ],
+   "title": "Austria – Wave 1 v1.0",
+   "version": "1.0"
+  },
+  "ggs2-nl-wave1": {
+   "colectica_url": null,
+   "collected_from": null,
+   "collected_to": null,
+   "country_name": "Netherlands",
+   "files": [
+    {
+     "download_id": 96,
+     "label": "Netherlands - Wave 1",
+     "size_mb": 1228.8,
+     "url": "https://www.ggp-i.org/form/download/96/"
+    }
+   ],
+   "other_versions": [],
+   "title": "Netherlands – Wave 1 v2.0",
+   "version": "2.0"
+  },
+  "upcoming-ggs2-fr-wave1": {
+   "colectica_url": null,
+   "collected_from": null,
+   "collected_to": null,
+   "country_name": "France",
+   "files": [],
+   "other_versions": [],
+   "title": "France – Wave 1",
+   "version": null
+  }
+ },
+ "slugs": {
+  "ffs-us-thefamilyandfertilitysurvey": {
+   "country": "US",
+   "key": "ffs",
+   "project": "FFS",
+   "rel_dir": "ffs/us",
+   "round": null,
+   "series": "FFS",
+   "stem": "ffs_us",
+   "upcoming": false,
+   "version": null,
+   "wave": ""
+  },
+  "ggs2-at-wave1": {
+   "country": "AT",
+   "key": "ggs2",
+   "project": "GGS",
+   "rel_dir": "ggs-ii/w1/at",
+   "round": 2,
+   "series": "GGS-II",
+   "stem": "ggs2_w1_at",
+   "upcoming": false,
+   "version": null,
+   "wave": "w1"
+  },
+  "ggs2-at-wave1-v1-0": {
+   "country": "AT",
+   "key": "ggs2",
+   "project": "GGS",
+   "rel_dir": "ggs-ii/w1/at",
+   "round": 2,
+   "series": "GGS-II",
+   "stem": "ggs2_w1_at_v1.0",
+   "upcoming": false,
+   "version": "1.0",
+   "wave": "w1"
+  },
+  "ggs2-se-wave1register": {
+   "country": "SE",
+   "key": "ggs2",
+   "project": "GGS",
+   "rel_dir": "ggs-ii/w1register/se",
+   "round": 2,
+   "series": "GGS-II",
+   "stem": "ggs2_w1register_se",
+   "upcoming": false,
+   "version": null,
+   "wave": "w1register"
+  },
+  "hh-harmonized-histories": {
+   "country": "",
+   "key": "hh",
+   "project": "HH",
+   "rel_dir": "hh/harmonized-histories",
+   "round": null,
+   "series": "HH",
+   "stem": "hh_harmonized-histories",
+   "upcoming": false,
+   "version": null,
+   "wave": "harmonized-histories"
+  },
+  "other-nkps": {
+   "country": "",
+   "key": "other",
+   "project": "OTHER",
+   "rel_dir": "other/nkps",
+   "round": null,
+   "series": "OTHER",
+   "stem": "other_nkps",
+   "upcoming": false,
+   "version": null,
+   "wave": "nkps"
+  },
+  "upcoming-ggs2-fr-wave1": {
+   "country": "FR",
+   "key": "ggs2",
+   "project": "GGS",
+   "rel_dir": "ggs-ii/w1/fr",
+   "round": 2,
+   "series": "GGS-II",
+   "stem": "ggs2_w1_fr",
+   "upcoming": true,
+   "version": null,
+   "wave": "w1"
+  },
+  "weird": {
+   "country": "",
+   "key": null,
+   "project": "OTHER",
+   "rel_dir": "other",
+   "round": null,
+   "series": "OTHER",
+   "stem": "weird",
+   "upcoming": false,
+   "version": null,
+   "wave": "weird"
+  }
+ }
+}

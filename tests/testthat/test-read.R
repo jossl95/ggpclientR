@@ -99,7 +99,7 @@ test_that("a parquet file can be read lazily with arrow and dplyr", {
   expect_error(ggp_read("x.dta", lazy = TRUE), "parquet", class = "ggp_error")
 })
 
-test_that("stacking streams the files and finds the type that holds all", {
+test_that("stacking matches columns by name and finds the type that holds all", {
   d <- withr::local_tempdir()
   a <- file.path(d, "a.parquet")
   b <- file.path(d, "b.parquet")
@@ -110,7 +110,7 @@ test_that("stacking streams the files and finds the type that holds all", {
   stack_to_parquet(files, keep, file.path(d, "out.parquet"))
   out <- ggp_read(file.path(d, "out.parquet"))
   expect_equal(names(out), c("id", "age", "only_a", "only_b"))  # first appearance
-  expect_equal(out$age, c("30", "40", "n/a"))  # a number and a text column become text
+  expect_equal(out$age, c("30.0", "40.0", "n/a"))  # a number and a text column become text, as in the Python package
   expect_equal(out$only_a, c("x", "y", NA))
   expect_equal(out$only_b, c(NA, NA, 1.5))
 
@@ -121,4 +121,19 @@ test_that("stacking streams the files and finds the type that holds all", {
   out <- ggp_read(file.path(d, "out2.parquet"))
   expect_s3_class(out$t, "POSIXct")
   expect_equal(is.na(out$t), c(FALSE, FALSE, TRUE, TRUE))
+})
+
+test_that("columns whose names differ only in case stay two columns", {
+  d <- withr::local_tempdir()
+  a <- file.path(d, "a.parquet")
+  b <- file.path(d, "b.parquet")
+  df <- data.frame(Age = 1:2, age = 3:4, id = 1:2)
+  arrow::write_parquet(df, a)
+  arrow::write_parquet(data.frame(age = 9L, id = 3L), b)
+  files <- data.frame(file = c(a, b), country = c("AT", "NL"), src = c("a", "b"))
+  stack_to_parquet(files, kept_columns(files), file.path(d, "out.parquet"))  # DuckDB alone would merge Age and age
+  out <- ggp_read(file.path(d, "out.parquet"))
+  expect_equal(names(out), c("Age", "age", "id"))
+  expect_equal(out$age, c(3L, 4L, 9L))
+  expect_equal(out$Age, c(1L, 2L, NA))
 })

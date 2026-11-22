@@ -1,0 +1,55 @@
+{
+ "column_labels": {
+  "cc": "Country"
+ },
+ "original_labels": {
+  "cc": {
+   "-1": {
+    "Don't know": [
+     "ggs/at/AT.dta",
+     "ggs/hr/HR.dta"
+    ],
+    "don't know": [
+     "ggs/gb/GB.dta"
+    ],
+    "Не знаю": [
+     "ggs/gb/GB_RU.dta"
+    ]
+   },
+   "1": {
+    "East Austria": [
+     "ggs/at/AT.dta"
+    ],
+    "East Midlands": [
+     "ggs/gb/GB.dta"
+    ],
+    "Pannonian Croatia": [
+     "ggs/hr/HR.dta"
+    ]
+   },
+   "203": {
+    "Czech Republic": [
+     "ggs/gb/GB.dta"
+    ],
+    "Czechia": [
+     "ggs/at/AT.dta"
+    ],
+    "czechia ": [
+     "ggs/hr/HR.dta"
+    ],
+    "Чехия": [
+     "ggs/gb/GB_RU.dta"
+    ]
+   }
+  }
+ },
+ "value_labels": {
+  "cc": {
+   "-1": "Don't know",
+   "1": "East Austria / Pannonian Croatia / East Midlands",
+   "203": "Czechia",
+   "3": "elementary school",
+   "4": "Elementary school"
+  }
+ }
+}

@@ -13,7 +13,7 @@ ggp_login(p)
 \code{p}, invisibly. An error of class \code{ggp_login_error} when there is no valid session and no usable link.
 }
 \description{
-Reuses the saved session (\code{data_dir/.session}, or the Python package's \code{.session.json}) if it still works, else
+Reuses the saved session (\code{data_dir/.session.json}, which the Python package uses too) if it still works, else
 asks you to paste the access link the portal e-mails you. The input is hidden. The link is valid for seven days and
 works like a password, so it is only asked for: there is no environment variable for it, it is not stored, and it is
 never logged. The saved session is what is reused. Syncing and downloading log in by themselves when needed.
