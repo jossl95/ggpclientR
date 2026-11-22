@@ -1,0 +1,34 @@
+---
+title: "Contract with the Python package"
+---
+
+ggpclient and the Python package [ggp-client](https://jossl95.github.io/ggp_client/) are two implementations of one
+contract: a file written by one is read by the other. The contract is on
+[the Python site](https://jossl95.github.io/ggp_client/contract.html); in short:
+
+- the same catalogue (`catalogue.sqlite`) and login (`.session.json`);
+- the same folders and lower-case file names under `download/{raw, processed, consolidated}`;
+- the same `ggp_*` provenance columns and the same `meta.json` format;
+- the same rules: country-specific variables left out (the file's own `country` variable first, then a table), labels
+  harmonized with one vote per country, the type that holds all for a column that differs between countries.
+
+## How it is kept true
+
+- `tests/testthat/fixtures` is a copy of the Python package's `tests/fixtures`: portal pages, an FFS dataset, a label
+  case, and the results both must give. `test-contract.R` checks this package against them; the CI compares the copy
+  with the Python repository, so the two cannot drift.
+- `test-equivalence.R` runs both packages on the same downloads (the Python one through reticulate) and compares the
+  data and the labels. On the 69 GGS files of both rounds the two gave the same rows, columns and labels.
+
+## Where R differs
+
+| | Python | R |
+|---|---|---|
+| numbers in a text column | `"2.0"` | `"2.0"` (the same since DuckDB stacks) or `"2"` for waves stacked with arrow |
+| datetimes | no time zone | UTC |
+| trailing spaces in Stata strings | kept | trimmed (haven) |
+| Stata text over 2,045 characters | cut | written whole |
+| readers | polars or pandas | data frames, haven labelled columns, arrow datasets |
+
+Use the Python package when you need the command line, pandas or polars; use this one when you work in R and do not
+want Python.

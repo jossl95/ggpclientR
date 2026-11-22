@@ -1,0 +1,59 @@
+---
+title: "FFS data"
+---
+
+The Family and Fertility Surveys (FFS, 1990s) come as fixed-width text with SPSS syntax, not as Stata or SPSS files.
+Every country's archive holds three files:
+
+| file | what it is |
+|---|---|
+| `COUNTRY.DAT` | the data: fixed-width text, 44 to 83 lines per respondent depending on the country |
+| `COUNTRY.SPS` | SPSS syntax that reads it: `DATA LIST`, `VARIABLE LABELS`, `VALUE LABELS`, `MISSING VALUE` |
+| `COUNTRY.TBL` | the published frequency tables, to check results against; not needed to read the data |
+
+Estonia ships ready-made `.SAV` files instead of a `.SPS`; Greece has no `.TBL` and its `.SPS` has no labels.
+
+## Download and conversion
+
+```r
+p <- ggp_client(project = "ffs", country = "at")
+p |> ggp_download()                       # raw files, plus converted_data.dta
+p |> ggp_download(ext = "sav")            # converted to sav instead
+p |> ggp_preprocess()                     # parquet + meta.json from the converted file
+```
+
+```
+data/download/raw/ffs/at/ffs_at.dat                    the raw files, renamed after the dataset
+data/download/raw/ffs/at/ffs_at.sps
+data/download/raw/ffs/at/ffs_at.tbl
+data/download/processed/ffs/at/converted_data.dta      converted, with variable and value labels
+data/download/processed/ffs/at/converted_data.parquet  after preprocess
+data/download/processed/ffs/at/converted_data.meta.json
+```
+
+FFS converts to `.dta` (default) or `.sav`, the formats that hold labels. Estonia has two samples and a total, so its
+names get the sample added (`ffs_ee_est_f.dat`, `converted_data_est_f.dta`). One dataset by hand, outside the catalogue:
+`ggp_convert_ffs("AUSTRIA.SPS", ext = c("dta", "sav"))`.
+
+What the conversion does:
+
+- Every `$` in a variable name becomes `_`, as Stata does not allow `$`: `IND01$01` is `IND01_01`. The raw `.sps` and
+  `.tbl` are rewritten the same way on download (a `$` in a quoted label stays).
+- Missing-value codes such as 98 stay in the data and are labelled; `.sav` also marks them missing, as SPSS would.
+- A cell that is not a number (the files use `*` for overflow) is read as missing, as SPSS does, and logged.
+- The parser copes with the quirks of the real files: stray quotes where an umlaut was lost, text columns marked `(A)`,
+  and labels shared by several variables.
+
+## In R
+
+```r
+ffs <- ggp_read("data/download/processed/ffs/at/converted_data.dta")
+table(haven::as_factor(ffs$RESID))      # value labels as factor levels
+attr(ffs$V917, "label")                  # "Religion respondent"
+ggp_read("data/download/raw/ffs/at/ffs_at.sps")   # or straight from the raw files
+```
+
+## In SPSS
+
+The raw files work directly. Open `ffs_at.sps`: its first line already reads `FILE='ffs_at.dat'`. Make that the full
+path if SPSS does not find the file, add `SAVE OUTFILE='ffs_at.sav'.` at the end, and run all.

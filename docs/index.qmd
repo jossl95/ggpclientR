@@ -1,0 +1,53 @@
+---
+title: "ggpclient"
+subtitle: "Download, label and consolidate data from the GGP data portal, in R"
+toc: false
+---
+
+**ggpclient** is an R package for the [GGP data portal](https://www.ggp-i.org) of the Generations and Gender
+Programme. It turns the portal's country-by-country downloads into analysis-ready data. It is the native R version of
+the Python package [ggp-client](https://jossl95.github.io/ggp_client/): the same steps, the same folders, the same files
+(see the [contract](contract.qmd)).
+
+1. **Index** every dataset on the portal into a local catalogue: GGS rounds 1 and 2, the Family and Fertility Surveys
+   (FFS), the Harmonized Histories and the Additional Datasets (the last two are only visible after login).
+2. **Download** the files you select, by project, round, wave and country, and unpack zip and 7z archives.
+3. **Preprocess** each data file (`.dta`, `.sav`, `.rds`, `.csv`, or FFS fixed-width `.dat` with its SPSS syntax) to
+   parquet, with its variable and value labels in a `meta.json` file.
+4. **Consolidate** the countries of each round and wave into one dataset, with one harmonized set of labels, as
+   parquet and as a labelled Stata file.
+
+```r
+library(ggpclient)
+
+p <- ggp_client(project = "ggs", round = 2)   # data_dir defaults to "data"
+
+p |> ggp_login()                              # paste the access link (hidden)
+p |> ggp_sync()
+p |> ggp_download(ext = "dta")                # download: 25 done, 0 skipped, 0 failed
+p |> ggp_preprocess()
+p |> ggp_consolidate()                        # data/download/consolidated/ggs-ii_w1.parquet, ...
+```
+
+## Why
+
+The portal ships every country as a separate archive, in several formats and with labels that differ between
+countries. Working with all countries of a wave means downloading dozens of files by hand, reading Stata or SPSS files,
+and stacking them while keeping track of which labels apply. ggpclient does that once, reproducibly, and keeps
+everything it did in a log.
+
+## Built with
+
+[httr2](https://httr2.r-lib.org) for the downloads, [haven](https://haven.tidyverse.org) for Stata and SPSS files and
+their labels, [arrow](https://arrow.apache.org/docs/r/) and [DuckDB](https://duckdb.org) for parquet and for stacking
+the countries, [archive](https://archive.r-lib.org) for zip and 7z, and [mirai](https://mirai.r-lib.org) for the
+background processes.
+
+## Where to next
+
+- [Getting started](getting-started.qmd): install, log in, download.
+- [Use case: GGS-II](ggs-ii.qmd): every GGS-II country in Stata format, consolidated to parquet.
+- [Labels](labels.qmd): reading labelled data, the `meta.json` files, and how labels are harmonized.
+- [FFS data](ffs.qmd): fixed-width data with SPSS syntax.
+- [Reference](reference.qmd): the functions and the data folder.
+- [Contract](contract.qmd): what this package and the Python package both guarantee.

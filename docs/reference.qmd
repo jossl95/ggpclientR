@@ -1,0 +1,52 @@
+---
+title: "Reference"
+---
+
+## The workflow
+
+Every step takes the client first, so it pipes: `p |> ggp_download(ext = "dta")`. A step returns a result that prints
+as `download: 5 done, 2 skipped, 0 failed`; its fields are `done`, `skipped` and `failed` (a data frame with `name` and
+`error`).
+
+| function | does |
+|---|---|
+| `ggp_client(data_dir = "data", access_url = NULL, concurrency = 8, project, round, wave, country, ids, all_versions = FALSE, force = FALSE)` | the client: catalogue, filters, session |
+| `ggp_rows(p)` | the files the filters select, from the catalogue |
+| `ggp_login(p)` | the saved session, else the access link (asked, hidden) |
+| `ggp_sync(p, dump = NULL)` | index the portal; `done` is the number of datasets, `found` what was parsed |
+| `ggp_download(p, ext, metadata = FALSE, rows, root, async = FALSE)` | download and unpack |
+| `ggp_preprocess(p, rows, async = FALSE)` | data files to parquet + meta.json |
+| `ggp_consolidate(p, rows, async = FALSE)` | one dataset per round and wave, with harmonized labels |
+| `ggp_stata(p, rows, concurrency = 1, async = FALSE)` | the consolidated datasets as labelled Stata files |
+| `ggp_stop_workers()` | stop the background processes (they end with your R session anyway) |
+
+## Reading and converting
+
+| function | does |
+|---|---|
+| `ggp_read(path, col_select, labelled = TRUE, lazy = FALSE)` | a `.parquet`, `.dta`, `.sav`, `.rds`, `.csv` or FFS `.sps` as a data frame; a `.rds.7z` or `.zip` with one datafile too; `lazy = TRUE` gives an arrow dataset |
+| `ggp_meta(path)` | the labels of a `.dta`, `.sav` or `.rds` as a list (what `meta.json` holds) |
+| `ggp_convert_ffs(sps, ext = "dta", force = FALSE)` | one FFS dataset to dta, sav or csv, next to the `.sps` |
+
+Every function has a help page: `?ggp_download`.
+
+## Options
+
+| option | default | does |
+|---|---|---|
+| `ggpclient.verbose` | `interactive()` | show every log line on screen (they always go to `data/ggpclient.log`) |
+| `ggpclient.memory_gb` | `6` | memory DuckDB may use when consolidating |
+| `ggpclient.base` | the portal | the portal's address (for tests) |
+
+## The data folder
+
+```
+data/
+├── catalogue.sqlite       the index (the same schema as the Python package)
+├── .session.json          the login, mode 600
+├── ggpclient.log          every step
+└── download/{raw, processed, consolidated}
+```
+
+Nothing is downloaded or written twice: existing files are kept, `force = TRUE` redoes everything and replaces
+datafiles saved under an uppercase name.

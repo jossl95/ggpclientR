@@ -41,7 +41,7 @@ vignettes/*.pdf
 .env
 
 # pkgdown site
-docs/
+# docs/ holds the Quarto website: kept (its _site is ignored by docs/.gitignore)
 
 # translation temp files
 po/*~

@@ -1,0 +1,86 @@
+---
+title: "Getting started"
+---
+
+## Install
+
+ggpclient needs R 4.1 or later.
+
+```r
+# install.packages("pak")
+pak::pak("jossl95/ggpclientR")
+```
+
+Downloading, unpacking and preprocessing run in background R processes ([mirai](https://mirai.r-lib.org)) that load the
+installed package, so install it rather than only `devtools::load_all()`-ing it.
+
+## Log in
+
+Downloading needs the access link the portal e-mails you (request it on the portal's login page). The link is valid
+for seven days and works like a password, so it is only asked for: there is no environment variable for it, and it is
+never stored or logged.
+
+```r
+p <- ggp_client()
+p |> ggp_login()      # asks you to paste the link; the input is hidden
+```
+
+The session is saved in `data/.session.json` (readable only by you) and reused, so the link is needed once. ggpclient
+looks for a login in this order:
+
+1. the saved session, if it still works (also one made by the Python package, which uses the same file);
+2. the `access_url` argument of `ggp_client()`, for scripts that cannot ask;
+3. otherwise it asks (input hidden, needs the askpass package). With no terminal to ask on it stops with an error of
+   class `ggp_login_error`.
+
+::: {.callout-warning}
+Do not type the link in a script: it stays in your history. Syncing and downloading log in by themselves when needed.
+:::
+
+## Index the portal
+
+```r
+p <- ggp_client()
+p |> ggp_sync()                         # all datasets into data/catalogue.sqlite
+ggp_rows(p)                             # one row per file
+```
+
+`ggp_sync()` reads the public dataset pages, then logs in to add the Harmonized Histories and Additional Datasets, which
+the portal lists only on the logged-in data access page. Without a login it indexes the rest and says what it skipped.
+
+## Filters
+
+The filters go into `ggp_client()` and apply to every step. Each takes one value, several, or nothing (all). Case does
+not matter, and a value that is not in the catalogue is an error, not an empty result.
+
+| filter | values |
+|---|---|
+| `project` | `"ggs"`, `"ffs"`, `"hh"` (Harmonized Histories), `"other"` (Additional Datasets), `"teaching"` |
+| `round` | `1`, `2` (or `"i"`, `"ii"`) |
+| `wave` | `"w1"`, `"w2"`, `"pilot"`, ...; for `hh` and `other` the dataset name, e.g. `"nkps"` |
+| `country` | two-letter codes: `"nl"`, `"at"`, ... |
+| `ids` | catalogue ids and ranges: `"3-12,20"` |
+| `all_versions` | `TRUE` also gives superseded versions (default: the latest only) |
+
+```r
+p <- ggp_client(project = "ggs", round = 2, country = c("nl", "at"))
+ggp_rows(p)      # look first: this is what the steps will work on
+```
+
+## Download
+
+```r
+p |> ggp_download(ext = "dta")          # done, skipped, failed
+```
+
+`ext` is the datafile type(s) to keep: `"dta"`, `"sav"`, `"rds"`, `"csv"`, several, or none for dta, sav and csv.
+`metadata = TRUE` also keeps documentation and codebooks. Files go to `data/download/raw`, in lower-case folders.
+Existing files are never overwritten unless the client was made with `force = TRUE`; a file already unpacked for these
+options is skipped. A transfer is checked and tried again when it is cut short.
+Each step returns a result that prints as `download: 5 done, 2 skipped, 0 failed` and lists the failures.
+
+## In the background
+
+`ggp_download()`, `ggp_preprocess()`, `ggp_consolidate()` and `ggp_stata()` take `async = TRUE`: they run in a
+background process and return a mirai at once. `m <- p |> ggp_preprocess(async = TRUE)`, then `m[]` waits for the result.
+Log in first: the background process uses the saved session.

@@ -1,0 +1,85 @@
+---
+title: "Use case: GGS-II, Stata files consolidated to parquet"
+---
+
+The goal: every country of GGS round 2 (GGS-II), downloaded in Stata format, and stacked into one dataset per wave,
+with its labels.
+
+```r
+library(ggpclient)
+
+p <- ggp_client(project = "ggs", round = 2)   # data_dir defaults to "data"
+
+p |> ggp_login()                              # paste the access link (hidden), once
+p |> ggp_sync()
+nrow(ggp_rows(p)) |> cat("files\n")
+p |> ggp_download(ext = "dta")                # done, skipped, failed
+p |> ggp_preprocess()
+p |> ggp_consolidate()
+```
+
+The filters are the arguments of `ggp_client()`; `ggp_rows(p)` holds the selected files. The steps run concurrently:
+downloads several at a time (each unpacked as soon as it arrives), preprocessing in background processes, consolidation
+as one streaming run.
+
+## What you get
+
+```
+data/
+├── catalogue.sqlite, .session.json, ggpclient.log
+└── download/
+    ├── raw/ggs-ii/w1/at/ggs2_w1_at_v1.1/.../ggsii_wave1_at_v_1_1.dta       as downloaded
+    ├── processed/ggs-ii/w1/at/ggs2_w1_at_v1.1/.../ggsii_wave1_at_v_1_1.parquet
+    │   processed/.../ggsii_wave1_at_v_1_1.meta.json                       its labels
+    └── consolidated/ggs-ii_w1.parquet                                      all countries of wave 1
+        consolidated/ggs-ii_w1.meta.json                                    their harmonized labels
+        consolidated/ggs-ii_w2.parquet, ggs-ii_pilot.parquet, ...
+```
+
+In November 2026, GGS-II wave 1 was 185,660 rows from 20 countries, with 4,001 variables.
+
+- **Preprocessing** reads each `.dta` (or `.sav`, `.rds`, `.csv`) once and writes it as parquet, adding the columns
+  `ggp_project`, `ggp_round`, `ggp_series`, `ggp_wave`, `ggp_country`, `ggp_version` and `ggp_file` (the source).
+- **Consolidating** stacks the countries by column name. A column a country lacks is empty there; a column that is a
+  number in one country and text in another becomes text.
+- **Country-specific variables** are left out of the consolidated file. GGS names them after the GGP country number,
+  `<name>_<number><nn>`: `aut01a_2101` is Austria's (21). The number is the file's own `country` variable, else a table
+  of country numbers. The per-country files in `processed` keep them; the log says how many were left out.
+- **Up to date**: preprocessing keeps existing files (`force = TRUE` redoes them). A consolidated file is rebuilt when
+  its countries or input files change, for example after downloading another country.
+
+## Read the result
+
+```r
+df <- ggp_read("data/download/consolidated/ggs-ii_w1.parquet", col_select = c("ggp_country", "dem01"))
+
+# a wave is large: open it lazily and let arrow read only what you ask for
+ggp_read("data/download/consolidated/ggs-ii_w1.parquet", lazy = TRUE) |>
+  dplyr::filter(ggp_country == "NL") |>
+  dplyr::select(dem01) |>
+  dplyr::collect()
+```
+
+## Both rounds, with Stata output
+
+`Rscript download_ggs.R` runs all of this for GGS rounds 1 and 2 and also writes every consolidated dataset as a
+labelled Stata file (`ggs-ii_w1.dta`), with the harmonized variable and value labels applied (`p |> ggp_stata()`). It
+ends with a summary of every step and exits with 1 if anything failed.
+
+::: {.callout-note}
+Stata files are large: GGS-II wave 1 is 3.3 GB as `.dta` and 36 MB as parquet; `compress` in Stata shrinks it. Each
+file is held whole in memory while it is written, so `ggp_stata()` does one at a time by default.
+:::
+
+## Memory
+
+Consolidating streams the files, so a wave does not have to fit in memory. Waves up to about 4 GB use DuckDB; wider
+ones (GGS-II wave 1) use arrow, one file at a time, at about 2.5 GB. `options(ggpclient.memory_gb = 12)` gives DuckDB
+more room on a big machine.
+
+## Known issues in the data
+
+- Three GGS-I files (Australia waves 1 and 2, Norway wave 1) give "404 Not Found" on the portal itself.
+- GGS-II Belarus wave 1 comes in English and Russian, so Belarus is in `ggs-ii_w1` twice. Filter on `ggp_file`.
+- Several GGS-I files, and GGS-II Finland and Uruguay, have broken text encoding in their labels. They are read as
+  latin1, which gives the same text as their `.sav` versions.

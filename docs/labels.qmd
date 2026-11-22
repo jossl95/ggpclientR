@@ -1,0 +1,62 @@
+---
+title: "Labels"
+---
+
+Parquet holds values, not labels. ggpclient keeps the labels of every `.dta`, `.sav` and `.rds` file, as haven reads
+them, in a `meta.json` next to its parquet file.
+
+## Labelled data in R
+
+`ggp_read()` reads `.dta`, `.sav` and `.rds` with haven and keeps the labels:
+
+```r
+x <- ggp_read("data/download/raw/ggs-ii/w1/at/ggs2_w1_at_v1.1/.../ggsii_wave1_at_v_1_1.dta")
+attr(x$dem01, "label")             # "Gender"
+haven::as_factor(x$dem01)          # the value labels as factor levels
+ggp_read("....dta", labelled = FALSE)   # the codes only, as in the parquet files
+```
+
+## From the parquet files
+
+```r
+df <- ggp_read("data/download/consolidated/ggs-ii_w1.parquet", col_select = c("ggp_country", "dem01"))
+meta <- jsonlite::read_json("data/download/consolidated/ggs-ii_w1.meta.json")
+
+meta$column_labels$dem01      # "Gender"                                  variable -> variable label
+meta$value_labels$dem01       # list(`1` = "Male", `2` = "Female", ...)   variable -> value -> label
+
+vl <- meta$value_labels$dem01
+df$gender <- factor(df$dem01, levels = as.integer(names(vl)), labels = unlist(vl))
+```
+
+JSON keys are text, so codes are `"1"`, not `1`. Letter codes such as `"b"` are Stata's extended missing values (`.b`).
+`ggp_meta(path)` returns the same list for one `.dta`, `.sav` or `.rds` file.
+
+## Per-file meta.json
+
+| key | content |
+|---|---|
+| `file` | the source file, under `download/raw` |
+| `file_label` | the file's own label (empty: haven does not expose it) |
+| `column_labels` | `{variable: label}` |
+| `value_labels` | `{variable: {value: label}}` |
+| `missing_ranges` | `.sav` only: the values SPSS treats as missing |
+| `original_types` | the Stata or SPSS display format of each variable |
+
+## Consolidated meta.json: harmonized labels
+
+Countries label the same variable and the same values differently: "Czechia" or "Czech Republic", or `region` 1 meaning
+"East Austria" in one country and "East Midlands" in another. The consolidated `meta.json` has one harmonized set:
+
+- **One vote per country**, that of its first file (Belarus ships GGS-II wave 1 in English and in Russian; the English
+  file votes). Harmonized Histories and Additional Datasets, which have no country, vote per file.
+- **Every variable has one label**: the one most countries use.
+- **Every value has exactly one label**: the one more than half of the countries use (ISO 203: "Czechia"). With no
+  majority, all labels are joined into one, most used first (`region` 1: "East Austria / East Midlands / ..."). Spelling
+  and case variants count as the same label.
+- **Several values may share a label**: `dem07` 2102 (Austria) and 3103 (Croatia) are both "Elementary school".
+- **Codes are never changed**: the data is exactly what each country delivered.
+- **`original_labels`** lists, for every value labelled differently in any file, each wording and the files that use it.
+
+The labelled Stata files from `ggp_stata()` use these same labels. Stata attaches value labels to whole numbers only, so
+they go on integer columns and on decimal columns that hold only whole numbers.
