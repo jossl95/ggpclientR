@@ -1,6 +1,6 @@
 test_that("extension values", {
-  expect_setequal(norm_ext(NULL), c("dta", "sav", "rds", "csv"))
-  expect_setequal(norm_ext(character()), c("dta", "sav", "rds", "csv"))
+  expect_setequal(norm_ext(NULL), c("dta", "sav", "csv"))  # rds only on request
+  expect_setequal(norm_ext(character()), c("dta", "sav", "csv"))  # rds only on request
   expect_equal(norm_ext(".SAV"), "sav")
   expect_setequal(norm_ext(c("dta", "CSV")), c("dta", "csv"))
 })
@@ -54,4 +54,13 @@ test_that("a plain file is kept only if it matches", {
   expect_equal(tree(file.path(root, "o")), c("AT.dta", "at.dta"))  # kept without force
   unpack_file(f, "AT.dta", file.path(root, "o"), "dta", FALSE, force = TRUE)
   expect_equal(tree(file.path(root, "o")), "at.dta")
+})
+
+test_that("rds is kept only when asked for", {
+  expect_equal(norm_ext("rds"), "rds")
+  z <- make_zip(list("a.rds" = "1", "a.dta" = "2"))
+  root <- withr::local_tempdir()
+  f <- save_raw(z, file.path(root, "in.zip"))
+  expect_equal(tree({unpack(f, file.path(root, "d"), norm_ext(NULL), FALSE); file.path(root, "d")}), "a.dta")
+  expect_equal(tree({unpack(f, file.path(root, "r"), norm_ext("rds"), FALSE); file.path(root, "r")}), "a.rds")
 })

@@ -161,3 +161,12 @@ test_that("steps can run in the background", {
   expect_equal(m2[]$done, 1L)
   expect_true(file.exists(file.path(d, "download/consolidated/ggs-ii_w1.parquet")))
 })
+
+test_that("a background step that fails returns an error value", {
+  skip_if_not_installed("mirai")
+  skip_if_not(requireNamespace("ggpclient", quietly = TRUE) && "async" %in% names(formals(ggpclient::ggp_preprocess)),
+              "the installed ggpclient is not this version")
+  p <- ggp_client(withr::local_tempdir())
+  p$dir <- "/proc/no/such/dir"  # the background process cannot create it
+  expect_true(mirai::is_error_value(ggp_preprocess(p, async = TRUE)[]))
+})

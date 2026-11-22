@@ -4,17 +4,17 @@
 \alias{ggp_stata}
 \title{Write the consolidated data as Stata files}
 \usage{
-ggp_stata(p, rows = NULL, concurrency = 2, async = FALSE)
+ggp_stata(p, rows = NULL, concurrency = 1, async = FALSE)
 }
 \arguments{
 \item{p}{A \code{\link[=ggp_client]{ggp_client()}}.}
 
 \item{rows}{Other rows than the client's.}
 
-\item{concurrency}{Files at a time.}
+\item{concurrency}{Files at a time (default 1).}
 
 \item{async}{Run in a background R process (needs the mirai package) and return a mirai at once; \code{m[]} waits for
-the result, \code{m$data} has it when \code{m} is resolved. Several steps can run at the same time, for example
+the result. A step that fails returns an error value (\code{mirai::is_error_value()}), not a result. Several steps can run at the same time, for example
 downloads of one round while another is processed. Log in first: the background process uses the saved session.}
 }
 \value{
@@ -24,5 +24,5 @@ A \code{ggp_result}.
 Writes \verb{<series>_<wave>.dta} next to each consolidated parquet, with the variable and value labels of its
 \code{.meta.json} applied. Stata labels whole numbers only, so value labels go on whole-number columns. Kept while newer
 than the parquet, unless the client has \code{force = TRUE}. Each file is held whole in memory while it is written:
-keep \code{concurrency} low.
+keep \code{concurrency} at 1 for the large waves (two at once can need 20 GB).
 }

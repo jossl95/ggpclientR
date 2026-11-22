@@ -12,7 +12,7 @@ ggp_preprocess(p, rows = NULL, async = FALSE)
 \item{rows}{Other rows than the client's.}
 
 \item{async}{Run in a background R process (needs the mirai package) and return a mirai at once; \code{m[]} waits for
-the result, \code{m$data} has it when \code{m} is resolved. Several steps can run at the same time, for example
+the result. A step that fails returns an error value (\code{mirai::is_error_value()}), not a result. Several steps can run at the same time, for example
 downloads of one round while another is processed. Log in first: the background process uses the saved session.}
 }
 \value{

@@ -1,18 +1,22 @@
 # Access to the GGP portal: sync the catalogue, log in, download and unpack files.
 
 # run a step of the client in a background R process (mirai): the console stays free, several steps can run at once
-utils::globalVariables(c("base", "dir", "concurrency", "force", "filters", "fn", "args")) # used inside the mirai expression
+# what the background process runs: the same client, rebuilt from its settings (a connection cannot be sent)
+async_run <- function(dir, concurrency, force, filters, fn, args, base) {
+  options(ggpclient.base = base)
+  q <- do.call(ggpclient::ggp_client, c(list(dir, concurrency = concurrency, force = force), filters))
+  do.call(getExportedValue("ggpclient", fn), c(list(q), args))
+}
 
+# run a step of the client in a background R process (mirai): the console stays free, several steps can run at once.
+# A step that fails comes back as a mirai error value (see mirai::is_error_value), not as a ggp_result.
 async_step <- function(p, fn, args) {
   if (!requireNamespace("mirai", quietly = TRUE)) {
     cli::cli_abort("{.code async = TRUE} needs the mirai package", class = "ggp_error")
   }
-  mirai::mirai({
-    options(ggpclient.base = base)
-    q <- do.call(ggpclient::ggp_client, c(list(dir, concurrency = concurrency, force = force), filters))
-    do.call(getExportedValue("ggpclient", fn), c(list(q), args))
-  }, dir = p$dir, concurrency = p$concurrency, force = p$force, filters = p$filters, fn = fn, args = args,
-  base = ggp_base())
+  mirai::mirai(do.call(run, a), run = async_run,
+               a = list(dir = p$dir, concurrency = p$concurrency, force = p$force, filters = p$filters, fn = fn,
+                        args = args, base = ggp_base()))
 }
 
 #' A client for the GGP data portal
@@ -87,7 +91,7 @@ ggp_client <- function(data_dir = "data", access_url = NULL, concurrency = 8, pr
 #' @export
 print.ggp_client <- function(x, ...) {
   f <- Filter(Negate(is.null), x$filters[c("project", "round", "wave", "country", "ids")])
-  cat(sprintf("<ggp_client> %s: %d files%s\n", x$dir, nrow(x$rows),
+  cat(sprintf("<ggp_client> %s: %d files%s\n", x$dir, nrow(ggp_rows(x)),
               if (length(f)) paste0(" (", paste(names(f), vapply(f, paste, "", collapse = ","), sep = " ", collapse = ", "), ")") else ""))
   invisible(x)
 }
@@ -280,7 +284,7 @@ disposition_filename <- function(header) {
 #' @param metadata Also keep the non-data files (documentation, codebooks) from the archives.
 #' @param rows,root Other rows than the client's, another folder.
 #' @param async Run in a background R process (needs the mirai package) and return a mirai at once; `m[]` waits for
-#'   the result, `m$data` has it when `m` is resolved. Several steps can run at the same time, for example
+#'   the result. A step that fails returns an error value (`mirai::is_error_value()`), not a result. Several steps can run at the same time, for example
 #'   downloads of one round while another is processed. Log in first: the background process uses the saved session.
 #' @return A `ggp_result` (done, skipped, failed).
 #' @examples
@@ -401,7 +405,7 @@ ggp_download <- function(p, ext = NULL, metadata = FALSE, rows = NULL, root = NU
 #' @param p A [ggp_client()].
 #' @param rows Other rows than the client's.
 #' @param async Run in a background R process (needs the mirai package) and return a mirai at once; `m[]` waits for
-#'   the result, `m$data` has it when `m` is resolved. Several steps can run at the same time, for example
+#'   the result. A step that fails returns an error value (`mirai::is_error_value()`), not a result. Several steps can run at the same time, for example
 #'   downloads of one round while another is processed. Log in first: the background process uses the saved session.
 #' @return A `ggp_result`.
 #' @export
@@ -428,7 +432,7 @@ ggp_preprocess <- function(p, rows = NULL, async = FALSE) {
 #' @param p A [ggp_client()].
 #' @param rows Other rows than the client's.
 #' @param async Run in a background R process (needs the mirai package) and return a mirai at once; `m[]` waits for
-#'   the result, `m$data` has it when `m` is resolved. Several steps can run at the same time, for example
+#'   the result. A step that fails returns an error value (`mirai::is_error_value()`), not a result. Several steps can run at the same time, for example
 #'   downloads of one round while another is processed. Log in first: the background process uses the saved session.
 #' @return A `ggp_result`.
 #' @export
@@ -442,17 +446,17 @@ ggp_consolidate <- function(p, rows = NULL, async = FALSE) {
 #' Writes `<series>_<wave>.dta` next to each consolidated parquet, with the variable and value labels of its
 #' `.meta.json` applied. Stata labels whole numbers only, so value labels go on whole-number columns. Kept while newer
 #' than the parquet, unless the client has `force = TRUE`. Each file is held whole in memory while it is written:
-#' keep `concurrency` low.
+#' keep `concurrency` at 1 for the large waves (two at once can need 20 GB).
 #'
 #' @param p A [ggp_client()].
 #' @param rows Other rows than the client's.
-#' @param concurrency Files at a time.
+#' @param concurrency Files at a time (default 1).
 #' @param async Run in a background R process (needs the mirai package) and return a mirai at once; `m[]` waits for
-#'   the result, `m$data` has it when `m` is resolved. Several steps can run at the same time, for example
+#'   the result. A step that fails returns an error value (`mirai::is_error_value()`), not a result. Several steps can run at the same time, for example
 #'   downloads of one round while another is processed. Log in first: the background process uses the saved session.
 #' @return A `ggp_result`.
 #' @export
-ggp_stata <- function(p, rows = NULL, concurrency = 2, async = FALSE) {
+ggp_stata <- function(p, rows = NULL, concurrency = 1, async = FALSE) {
   if (async) return(async_step(p, "ggp_stata", list(rows = rows, concurrency = concurrency)))
   names <- names(consolidation_groups(rows %||% p$rows, p$downloads, p$processed))
   files <- file.path(p$consolidated, paste0(names, ".parquet"))

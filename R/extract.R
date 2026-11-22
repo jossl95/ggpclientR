@@ -9,7 +9,7 @@ MAX_DEPTH <- 5 # shortcut: no cap on unpacked size, fine for archives from the p
 norm_ext <- function(ext) {
   ext <- unlist(ext)
   if (!length(ext)) {
-    return(DATA_EXT)
+    return(setdiff(DATA_EXT, "rds")) # rds only when asked for: a new default would fetch every file again
   }
   unique(tolower(sub("^\\.", "", as.character(ext))))
 }

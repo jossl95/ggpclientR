@@ -22,6 +22,7 @@ SCHEMA <- c(
 
 db_connect <- function(path) {
   con <- DBI::dbConnect(RSQLite::SQLite(), path)
+  DBI::dbExecute(con, "PRAGMA busy_timeout = 10000") # background steps share the file: wait, do not fail
   for (s in SCHEMA) DBI::dbExecute(con, s)
   if (!"fetched" %in% DBI::dbGetQuery(con, "PRAGMA table_info(file)")$name) { # made by an older version
     DBI::dbExecute(con, "ALTER TABLE file ADD COLUMN fetched TEXT")

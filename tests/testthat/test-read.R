@@ -80,3 +80,10 @@ test_that("rds files: read, labelled, in a 7z or zip, and preprocessed like dta"
   expect_equal(ggp_read(file.path(pre, "x/a.parquet"))$age, c(30, 40))
   expect_equal(jsonlite::read_json(file.path(pre, "x/a.meta.json"))$value_labels$age[["30"]], "thirty")
 })
+
+test_that("a compressed file with several datafiles is refused, zip or 7z", {
+  d <- withr::local_tempdir()
+  both <- list("a.rds" = "1", "b.rds" = "2")
+  expect_error(ggp_read(save_raw(make_7z(both), file.path(d, "x.7z"))), "holds 2 datafiles", class = "ggp_error")
+  expect_error(ggp_read(save_raw(make_zip(both), file.path(d, "x.zip"))), "holds 2 datafiles", class = "ggp_error")
+})
