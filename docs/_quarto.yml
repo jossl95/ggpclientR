@@ -13,13 +13,15 @@ website:
       - href: index.qmd
         text: Home
       - getting-started.qmd
+      - reference.qmd
+      - text: Articles
+        menu:
       - ggs-ii.qmd
       - labels.qmd
       - ffs.qmd
-      - reference.qmd
       - contract.qmd
     right:
-      - text: Python package
+      - icon: python
         href: https://jossl95.github.io/ggp_client/
       - icon: github
         href: https://github.com/jossl95/ggpclientR
