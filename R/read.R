@@ -16,12 +16,22 @@ dat_of <- function(sps) {
   cli::cli_abort("no .dat for {.file {sps}}", class = "ggp_error")
 }
 
+# every piece of text in a Stata or SPSS read: names, labels, text columns
+utf8_ok <- function(x) {
+  text <- c(names(x), unlist(lapply(x, \(col) c(attr(col, "label", exact = TRUE), names(attr(col, "labels", exact = TRUE)),
+                                                 if (is.character(col)) col))))
+  all(validUTF8(text))
+}
+
 read_stat <- function(path, n_max = Inf, user_na = FALSE) {
   args <- list(path, n_max = n_max)
   f <- if (file_type(path) == ".dta") haven::read_dta else haven::read_sav
   if (file_type(path) == ".sav") args$user_na <- user_na
-  # some GGS files mix encodings: read as their .sav twins are
-  tryCatch(do.call(f, args), error = \(e) do.call(f, c(args, encoding = "latin1")))
+  x <- tryCatch(do.call(f, args), error = \(e) NULL)
+  if (is.null(x) || !utf8_ok(x)) { # some GGS files mix encodings: read as their .sav twins are
+    x <- do.call(f, c(args, encoding = "latin1"))
+  }
+  x
 }
 
 # a plain vector: the codes, without haven's label, format and missing-value attributes
@@ -61,6 +71,9 @@ ggp_read <- function(path, col_select = NULL) {
 # a value-label code as JSON text: 1 -> "1", never "1.0"
 code <- function(k) vapply(k, \(v) format(v, scientific = FALSE, trim = TRUE, digits = 15), character(1), USE.NAMES = FALSE)
 
+# the code of a value label as JSON text; Stata's extended missing values (.a, .b, ...) are "a", "b", ...
+value_code <- function(k) ifelse(is.na(k), haven::na_tag(k), code(k))
+
 #' The labels of a dta or sav file
 #'
 #' The variable labels, value labels and user-defined missing values of a Stata or SPSS file, as a list that
@@ -80,7 +93,7 @@ ggp_meta <- function(path) {
     return(NULL)
   }
   x <- read_stat(path, n_max = 0, user_na = TRUE)
-  labels <- \(a) lapply(x, \(col) attr(col, a))
+  labels <- \(a) lapply(x, \(col) attr(col, a, exact = TRUE)) # exact: "label" must not match "labels"
   keep <- \(l) l[!vapply(l, is.null, logical(1))]
   vl <- keep(labels("labels"))
   missing <- Map(\(v, r) c(as.list(v), if (!is.null(r)) list(list(lo = r[1], hi = r[2]))),
@@ -89,7 +102,7 @@ ggp_meta <- function(path) {
   list(
     file_label = "",
     column_labels = obj(lapply(labels("label"), \(l) l %||% NA_character_)),
-    value_labels = obj(lapply(vl, \(l) as.list(stats::setNames(names(l), code(unname(l)))))),
+    value_labels = obj(lapply(vl, \(l) as.list(stats::setNames(names(l), value_code(unname(l)))))),
     missing_ranges = obj(missing),
     original_types = obj(lapply(Map(\(a, b) a %||% b, labels("format.stata"), labels("format.spss")), \(l) l %||% NA_character_))
   )
