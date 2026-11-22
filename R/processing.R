@@ -3,8 +3,8 @@
 # Preprocessing saves downloaded datafiles as parquet under data_dir/download/processed, with columns that say where
 # each row came from. One parquet per data file, at the same path as in download/raw, plus a .meta.json with its
 # labels (dta and sav):
-#   download/raw/ggs-ii/w1/at/ggs2_w1_at_v1.1/x/ggsii_wave1_at_v_1_1.dta ->
-#   download/processed/ggs-ii/w1/at/ggs2_w1_at_v1.1/x/ggsii_wave1_at_v_1_1.parquet and ggsii_wave1_at_v_1_1.meta.json
+#   download/raw/ggs-ii/w1/at/ggs2_w1_at_v1.1.dta ->
+#   download/processed/ggs-ii/w1/at/ggs2_w1_at_v1.1.parquet and ggs2_w1_at_v1.1.meta.json
 # A file that comes in several types (dta, sav and csv of one dataset) is read once, in the order of FORMATS.
 # FFS is read from its converted_data.dta/.sav, which the download puts in download/processed/ffs/<cc>/ already; a
 # country without one is read from the raw .sps/.dat.
@@ -42,19 +42,7 @@ unpack_ffs <- function(archive, filename, dest, stem, ext, metadata, convert_to 
   for (tbl in files[suffix == ".tbl"]) { # report text: only a $ between name characters
     as_latin1(tbl, \(x) gsub("(?<=[A-Za-z0-9])\\$(?=[A-Za-z0-9])", "_", x, perl = TRUE))
   }
-  for (i in seq_along(files)) {
-    rel <- substring(files[i], nchar(tmp) + 2L)
-    if (suffix[i] %in% DATA_FILES) {
-      name <- if (count[[suffix[i]]] == 1) paste0(stem, suffix[i]) else
-        paste0(stem, "_", tolower(tools::file_path_sans_ext(basename(rel))), suffix[i])
-      rel <- file.path(dirname(rel), name)
-    }
-    target <- file.path(dest, rel)
-    if (force || !file.exists(target)) {
-      dir.create(dirname(target), recursive = TRUE, showWarnings = FALSE)
-      file.rename(files[i], target)
-    }
-  }
+  place(tmp, dest, stem, dest, force)
   n
 }
 
@@ -72,6 +60,21 @@ datafiles <- function(folder, types = FORMATS) {
   sort(unname(best), method = "radix")
 }
 
+#' The datafiles of a download: lp is <country folder>/<file stem>, its files <stem>.dta, <stem>_x.dta, ...
+#'
+#' A folder of its own (downloads of older versions) holds all its files.
+#' @noRd
+own_files <- function(root, lp) {
+  p <- file.path(root, lp)
+  if (dir.exists(p)) {
+    return(datafiles(p))
+  }
+  # shortcut: a stem without version (ggs2_w1_at) also takes ggs2_w1_at_v1.0.*; the portal gives every dataset one
+  files <- datafiles(dirname(p))
+  s <- tolower(tools::file_path_sans_ext(basename(files)))
+  files[s == basename(p) | startsWith(s, paste0(basename(p), "_"))]
+}
+
 #' The data files of row r, as data.frame(path, rel): none if it is not downloaded
 #'
 #' rel is the path under root (or under out, for FFS: its converted dta/sav in download/processed when there are
@@ -80,12 +83,13 @@ datafiles <- function(folder, types = FORMATS) {
 sources <- function(r, root, out) {
   empty <- data.frame(path = character(), rel = character())
   lp <- r$local_path
-  if (is.na(lp) || !nzchar(lp) || !dir.exists(file.path(root, lp))) {
+  if (is.na(lp) || !nzchar(lp)) {
     return(empty)
   }
-  conv <- datafiles(file.path(out, lp), LABELLED)
+  folder <- if (dir.exists(file.path(root, lp))) file.path(out, lp) else dirname(file.path(out, lp))
+  conv <- datafiles(folder, LABELLED)
   conv <- conv[startsWith(tolower(basename(conv)), CONVERTED)]
-  paths <- if (length(conv)) conv else datafiles(file.path(root, lp))
+  paths <- if (length(conv)) conv else own_files(root, lp)
   base <- if (length(conv)) out else root
   data.frame(path = paths, rel = substring(paths, nchar(base) + 2L))
 }

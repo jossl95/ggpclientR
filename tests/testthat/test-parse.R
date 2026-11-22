@@ -4,6 +4,11 @@ test_that("slugs and naming", {
   expect_equal(naming(p, "ggs2-at-wave1", "1.1"), list(rel_dir = "ggs-ii/w1/at", stem = "ggs2_w1_at_v1.1"))
   expect_equal(parse_slug("ggs2-at-wave1-v1-0")$version, "1.0")
   expect_equal(parse_slug("ggs2-se-wave1register")$wave, "w1register")
+  folder <- \(slug) naming(parse_slug(slug), slug, "1.0")$rel_dir
+  expect_equal(folder("ggs2-ee-wave2pilot"), "ggs-ii/w2/pilot/ee")
+  expect_equal(folder("ggs2-se-wave1register"), "ggs-ii/w1/register/se")
+  expect_equal(folder("ggs2-cz-pilotfollowup"), "ggs-ii/pilot/followup/cz")
+  expect_equal(folder("ggs2-cz-pilot"), "ggs-ii/pilot/cz")
   expect_true(parse_slug("upcoming-ggs2-fr-wave1")$upcoming)
   ffs <- parse_slug("ffs-us-thefamilyandfertilitysurvey")
   expect_equal(naming(ffs, "x", "1.0"), list(rel_dir = "ffs/us", stem = "ffs_us_v1.0"))

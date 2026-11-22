@@ -9,7 +9,7 @@
 FFS_FORMATS <- c("sav", "dta", "csv")
 CONVERTED <- "converted_data"
 RAW <- c("dat", "sps", "tbl", "sav") # always kept; .sav because Estonia ships those instead of a .sps
-DATA_FILES <- c(".dat", ".sps", ".tbl", ".sav", ".dta", ".csv") # renamed after the dataset; documents keep their names
+DATA_FILES <- c(".dat", ".sps", ".tbl", ".sav", ".dta", ".rds", ".csv") # named after the dataset; documents keep their names
 SECTION <- "^(DATA LIST|VARIABLE LABELS?|VALUE LABELS?|MISSING VALUES?)\\b(.*)$"
 # a label runs to the last quote on its line: some files have stray quotes where umlauts were ("Nieder"sterreich")
 TOKEN <- r"---("[^\n]*"|'[^\n]*'|\([^)]*\)|/|[^\s/()"']+)---"

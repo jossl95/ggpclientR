@@ -128,3 +128,40 @@ unpack_file <- function(path, name, dest, ext, metadata, force = FALSE) {
   }
   1L
 }
+
+#' Move what was unpacked in tmp: datafiles into dest, named after the dataset (<stem>.dta, or <stem>_<name>.dta when
+#' there are several of one type), and the other files (documents) into docs, keeping their paths
+#'
+#' A file that already exists is kept unless force.
+#' @noRd
+place <- function(tmp, dest, stem, docs, force = FALSE) {
+  files <- sort(list.files(tmp, recursive = TRUE, full.names = TRUE, all.files = TRUE, no.. = TRUE))
+  suffix <- file_type(files)
+  count <- table(suffix)
+  for (i in seq_along(files)) {
+    rel <- substring(files[i], nchar(tmp) + 2L)
+    target <- if (suffix[i] %in% DATA_FILES) { # shortcut: two datafiles of one name in different archive folders keep the first
+      file.path(dest, if (count[[suffix[i]]] == 1) paste0(stem, suffix[i]) else
+        paste0(stem, "_", tolower(tools::file_path_sans_ext(basename(rel))), suffix[i]))
+    } else {
+      file.path(docs, rel)
+    }
+    if (force || !file.exists(target)) {
+      dir.create(dirname(target), recursive = TRUE, showWarnings = FALSE)
+      file.rename(files[i], target)
+    }
+  }
+}
+
+#' Unpack a download into dest, the country folder: datafiles as <stem>.<ext>, documents in dest/<stem>/
+#'
+#' Returns the number of matching files; with none, nothing is written.
+#' @noRd
+unpack_dataset <- function(path, name, dest, stem, ext, metadata, force = FALSE) {
+  dir.create(dirname(dest), recursive = TRUE, showWarnings = FALSE)
+  tmp <- tempfile(".unpack-", tmpdir = dirname(dest))
+  on.exit(unlink(tmp, recursive = TRUE), add = TRUE)
+  n <- unpack_file(path, name, tmp, ext, metadata, force = TRUE)
+  place(tmp, dest, stem, file.path(dest, stem), force)
+  n
+}

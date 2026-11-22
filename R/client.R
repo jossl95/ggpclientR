@@ -150,7 +150,9 @@ portal_request <- function(url) {
     httr2::req_error(is_error = \(resp) FALSE) # statuses are handled here
 }
 
-with_session <- function(req, p) httr2::req_cookie_preserve(req, p$jar)
+# read only: curl writes a jar when its handle is freed, at garbage collection, so a late handle without the session
+# could overwrite the login; only ggp_login() writes the jar
+with_session <- function(req, p) httr2::req_options(req, cookiefile = p$jar)
 
 #' The text of one page; transport errors and server errors are tried three times
 #' @noRd
@@ -285,9 +287,12 @@ ggp_login <- function(p) {
   if (!startsWith(url, paste0(ggp_base(), "/"))) {
     cli::cli_abort("the access link must start with {.val {ggp_base()}/}", class = "ggp_login_error", call = NULL)
   }
-  tryCatch(httr2::req_perform(with_session(portal_request(url), p)),
+  h <- curl::new_handle(useragent = "ggpclient/0.1", timeout = 60, cookiefile = p$jar)
+  tryCatch(curl::curl_fetch_memory(url, h),
            error = \(e) cli::cli_abort("login request failed ({class(e)[1]})", class = "ggp_login_error", call = NULL))
-  Sys.chmod(p$jar, "600")
+  ck <- curl::handle_cookies(h) # every cookie the link and its redirects set
+  writeLines(c("# Netscape HTTP Cookie File", paste(ck$domain, "FALSE", ck$path, "FALSE", 0, ck$name, ck$value, sep = "\t")),
+             p$jar) # the jar keeps its mode 600
   if (!logged_in(p)) {
     cli::cli_abort("the access link was not accepted (expired or already used?)", class = "ggp_login_error", call = NULL)
   }
@@ -314,10 +319,7 @@ disposition_filename <- function(header) {
 #' The session cookies are only read (`cookiefile`), so workers never write the cookie jar at the same time.
 #' @noRd
 download_one <- function(j) {
-  cleanup <- \(ok) {
-    unlink(j$part)
-    if (!(ok || j$existed)) unlink(j$dest, recursive = TRUE) # a failed fetch must not delete what an earlier one unpacked
-  }
+  cleanup <- \(ok) unlink(j$part)
   resp <- tryCatch(
     httr2::request(j$url) |>
       httr2::req_user_agent("ggpclient/0.1") |>
@@ -343,7 +345,7 @@ download_one <- function(j) {
     if (j$ffs) {
       unpack_ffs(j$part, name, j$dest, j$stem, j$want, j$metadata, j$convert, j$force, j$converted_dir, j$log)
     } else {
-      unpack_file(j$part, name, j$dest, j$want, j$metadata, j$force)
+      unpack_dataset(j$part, name, j$dest, j$stem, j$want, j$metadata, j$force)
     },
     error = \(e) e)
   cleanup(!inherits(n, "error") && n > 0)
@@ -395,7 +397,8 @@ ggp_download <- function(p, ext = NULL, metadata = FALSE, rows = NULL, root = NU
   skipped <- 0L
   for (r in rows_of(rows)) {
     k <- if (r$project == "FFS") union(c("raw", convert), meta) else kept
-    there <- !is.na(r$local_path) && dir.exists(file.path(root, r$local_path))
+    lp <- file.path(root, r$local_path)
+    there <- !is.na(r$local_path) && any(startsWith(list.files(dirname(lp), all.files = TRUE), basename(lp))) # its files, or its old folder
     prev <- if (there) strsplit(r$fetched %|NA|% "", " ")[[1]] else character() # a deleted folder holds nothing
     if (!p$force && there && all(k %in% prev)) {
       skipped <- skipped + 1L
@@ -408,15 +411,13 @@ ggp_download <- function(p, ext = NULL, metadata = FALSE, rows = NULL, root = NU
   failed <- failures(character(), character())
   jobs <- lapply(todo, \(t) {
     r <- t$r
-    ffs <- r$project == "FFS"
     stem <- paste0(r$stem, if (r$n_files > 1) paste0("_", r$download_id) else "")
-    rel <- if (ffs) r$rel_dir else paste0(r$rel_dir, "/", stem) # FFS: one dataset per country, no folder of its own
-    dest <- file.path(root, rel)
+    dest <- file.path(root, r$rel_dir) # the country folder: its files are named after the dataset, <stem>.dta
     dir.create(dirname(dest), recursive = TRUE, showWarnings = FALSE)
     ggp_log(p$log, "info", "downloading %s (file %d)", r$slug, r$download_id)
-    list(t = t, url = abs_url(r$url), jar = p$jar, stem = stem, ffs = ffs, rel = rel, dest = dest, existed = dir.exists(dest),
-         part = file.path(dirname(dest), paste0(stem, ".part")), want = want, metadata = metadata, convert = convert,
-         force = p$force, converted_dir = file.path(p$processed, rel), log = p$log)
+    list(t = t, url = abs_url(r$url), jar = p$jar, stem = stem, ffs = r$project == "FFS", rel = paste0(r$rel_dir, "/", stem),
+         dest = dest, part = file.path(dirname(dest), paste0(stem, ".part")), want = want, metadata = metadata,
+         convert = convert, force = p$force, converted_dir = file.path(p$processed, r$rel_dir), log = p$log)
   })
 
   # each worker downloads its file and unpacks it at once, `concurrency` at a time: no pile of archives on disk

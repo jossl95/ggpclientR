@@ -45,10 +45,10 @@ test_that("sync indexes the catalogue, download unpacks it, and every step can b
   expect_equal(r$failed$name, "ggs2-nl-wave1")
   expect_match(r$failed$error, "web page")
 
-  at_dir <- file.path(dl, "ggs-ii/w1/at/ggs2_w1_at_v1.1")
+  at_dir <- file.path(dl, "ggs-ii/w1/at")  # the country folder: files named after the dataset
   ffs_dir <- file.path(dl, "ffs/us")
   conv_dir <- file.path(d, "download/processed/ffs/us")
-  expect_equal(tree(at_dir), c("data/at_w1.dta", "data/at_w1.sav"))
+  expect_equal(tree(at_dir), c("ggs2_w1_at_v1.1.dta", "ggs2_w1_at_v1.1.sav"))
   expect_equal(tree(ffs_dir), c("ffs_us_v1.0.dat", "ffs_us_v1.0.sps", "ffs_us_v1.0.tbl"))  # FFS: raw here
   expect_equal(tree(conv_dir), "converted_data.dta")  # and converted (dta by default) in download/processed
   sps <- read_text(file.path(ffs_dir, "ffs_us_v1.0.sps"))  # rewritten: names with _, FILE= the new .dat
@@ -56,7 +56,7 @@ test_that("sync indexes the catalogue, download unpacks it, and every step can b
   expect_true(grepl("V004_01  15-16", sps, fixed = TRUE) && grepl("\r\n V005_01\r\n", sps, fixed = TRUE))
   expect_true(grepl('"Caseweight in US$"', sps, fixed = TRUE) && !grepl("$01", sps, fixed = TRUE))
   expect_equal(read_text(file.path(ffs_dir, "ffs_us_v1.0.tbl")), "TABLE 4 BY IND01_01\r\nincome US$ 100\r\n")  # names only
-  expect_equal(read_text(file.path(at_dir, "data/at_w1.dta")), "dta")
+  expect_equal(read_text(file.path(at_dir, "ggs2_w1_at_v1.1.dta")), "dta")
   got <- DBI::dbGetQuery(con, "SELECT local_path, fetched FROM file WHERE download_id = 95")
   expect_equal(unlist(got, use.names = FALSE), c("ggs-ii/w1/at/ggs2_w1_at_v1.1", "csv dta sav"))
   expect_length(list.files(d, pattern = "\\.part$", recursive = TRUE, all.files = TRUE), 0)
@@ -70,22 +70,22 @@ test_that("sync indexes the catalogue, download unpacks it, and every step can b
     c(r$done, r$skipped)
   }
   expect_equal(tree(file.path(dl, "hh/harmonized-histories")),
-               c("hh_harmonized-histories_1/x.dta", "hh_harmonized-histories_84/x.dta"))  # two files: a folder each
-  expect_equal(tree(file.path(dl, "other/nkps")), "other_nkps/x.dta")
+               c("hh_harmonized-histories_1.dta", "hh_harmonized-histories_84.dta"))  # two files: the download id tells them apart
+  expect_equal(tree(file.path(dl, "other/nkps")), "other_nkps.dta")
   expect_equal(again(), c(0, 5))  # same request: nothing to do
   expect_equal(again(ext = "dta"), c(0, 5))  # a subset for the others; FFS already has its dta
   expect_equal(again(ext = "csv"), c(0, 5))  # FFS converts to dta or sav only: csv means its default dta
   expect_equal(again(ext = "sav"), c(1, 4))  # FFS converted to sav as well
   expect_equal(tree(conv_dir), c("converted_data.dta", "converted_data.sav"))
-  writeBin(charToRaw("my edits"), file.path(at_dir, "data/at_w1.dta"))
+  writeBin(charToRaw("my edits"), file.path(at_dir, "ggs2_w1_at_v1.1.dta"))
   expect_equal(again(metadata = TRUE), c(5, 0))
-  expect_equal(read_text(file.path(at_dir, "data/at_w1.dta")), "my edits")  # fetched again for the docs: file kept
-  expect_equal(tree(at_dir), c("data/at_w1.dta", "data/at_w1.sav", "docs/Codebook.pdf"))
+  expect_equal(read_text(file.path(at_dir, "ggs2_w1_at_v1.1.dta")), "my edits")  # fetched again for the docs: file kept
+  expect_equal(tree(at_dir), c("ggs2_w1_at_v1.1.dta", "ggs2_w1_at_v1.1.sav", "ggs2_w1_at_v1.1/docs/Codebook.pdf"))  # documents: a folder
   expect_equal(tree(ffs_dir), c("docs/readme.txt", "ffs_us_v1.0.dat", "ffs_us_v1.0.sps", "ffs_us_v1.0.tbl"))
   expect_length(list.files(dirname(ffs_dir), pattern = "^\\.unpack-", all.files = TRUE), 0)  # the temporary folder is gone
   expect_equal(again(metadata = TRUE), c(0, 5))
   expect_equal(again(force = TRUE), c(5, 0))  # force: everything again, existing files overwritten
-  expect_equal(read_text(file.path(at_dir, "data/at_w1.dta")), "dta")
+  expect_equal(read_text(file.path(at_dir, "ggs2_w1_at_v1.1.dta")), "dta")
   unlink(ffs_dir, recursive = TRUE)  # raw files deleted by hand: downloaded again
   expect_equal(again(), c(1, 4))
   expect_equal(again(ext = "dta"), c(0, 5))  # no ext converts to dta too
@@ -95,7 +95,7 @@ test_that("sync indexes the catalogue, download unpacks it, and every step can b
   text <- read_text(file.path(d, "ggpclient.log"))
   for (line in c("INFO sync: indexed 7 datasets, 0 failed", "INFO login: logged in with the access link",
                  "INFO login: saved session reused", "INFO downloaded ggs2-at-wave1: ", "files kept in ggs-ii/w1/at/ggs2_w1_at_v1.1",
-                 "ERROR failed ggs2-nl-wave1: got a web page", "INFO skipped ffs-us-thefamilyandfertilitysurvey: already in ffs/us")) {
+                 "ERROR failed ggs2-nl-wave1: got a web page", "INFO skipped ffs-us-thefamilyandfertilitysurvey: already in ffs/us/ffs_us_v1.0")) {
     expect_true(grepl(line, text, fixed = TRUE), info = line)
   }
   expect_false(grepl("s3cr3t", text, fixed = TRUE))

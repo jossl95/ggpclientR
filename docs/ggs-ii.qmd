@@ -28,9 +28,9 @@ as one streaming run.
 data/
 ├── catalogue.sqlite, .session.json, ggpclient.log
 └── download/
-    ├── raw/ggs-ii/w1/at/ggs2_w1_at_v1.1/.../ggsii_wave1_at_v_1_1.dta       as downloaded
-    ├── processed/ggs-ii/w1/at/ggs2_w1_at_v1.1/.../ggsii_wave1_at_v_1_1.parquet
-    │   processed/.../ggsii_wave1_at_v_1_1.meta.json                       its labels
+    ├── raw/ggs-ii/w1/at/ggs2_w1_at_v1.1.dta                  as downloaded, named after the dataset
+    ├── processed/ggs-ii/w1/at/ggs2_w1_at_v1.1.parquet
+    │   processed/ggs-ii/w1/at/ggs2_w1_at_v1.1.meta.json      its labels
     └── consolidated/ggs-ii_w1.parquet                                      all countries of wave 1
         consolidated/ggs-ii_w1.meta.json                                    their harmonized labels
         consolidated/ggs-ii_w2.parquet, ggs-ii_pilot.parquet, ...

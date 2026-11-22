@@ -81,6 +81,10 @@ test_that("read, preprocess and consolidate", {
   expect_equal(country_columns(f, "DE"), "v1_2101")
   arrow::write_parquet(data.frame(v1_2101 = 1, v1_1401 = 1), f)
   expect_equal(country_columns(f, "DE"), "v1_1401")
+  cz <- file.path(d, "own", "ggs-ii/pilot/cz") # two versions side by side: each row takes its own files
+  dir.create(cz, recursive = TRUE)
+  for (f in c("ggs2_pilot_cz_v0.3.dta", "ggs2_pilot_cz_v0.3.sav", "ggs2_pilot_cz_v0.2.dta")) writeLines("x", file.path(cz, f))
+  expect_equal(basename(own_files(file.path(d, "own"), "ggs-ii/pilot/cz/ggs2_pilot_cz_v0.3")), "ggs2_pilot_cz_v0.3.dta")
   expect_length(list.files(d, "\\.part", recursive = TRUE, all.files = TRUE), 0)
 })
 
@@ -129,7 +133,7 @@ test_that("the GGS pipeline: download, preprocess, consolidate, Stata", {
   steps <- suppressMessages(run())
   expect_equal(steps$download$failed$name, "ggs2-nl-wave1")  # the fake NL file is a web page: reported
   expect_equal(c(steps$download$done, steps$stata$done), c(1, 1))
-  expect_equal(tree(file.path(data, "download/raw")), "ggs-ii/w1/at/ggs2_w1_at_v1.1/data/at_w1.dta")  # GGS only, dta only
+  expect_equal(tree(file.path(data, "download/raw")), "ggs-ii/w1/at/ggs2_w1_at_v1.1.dta")  # GGS only, dta only
   cons <- file.path(data, "download/consolidated")
   expect_equal(tree(cons), c("ggs-ii_w1.dta", "ggs-ii_w1.meta.json", "ggs-ii_w1.parquet"))
   meta <- jsonlite::read_json(file.path(cons, "ggs-ii_w1.meta.json"))

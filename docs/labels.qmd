@@ -11,7 +11,7 @@ them, in a `meta.json` next to its parquet file. Variable names are lower case, 
 `ggp_read()` reads `.dta`, `.sav` and `.rds` with haven and keeps the labels:
 
 ```r
-x <- ggp_read("data/download/raw/ggs-ii/w1/at/ggs2_w1_at_v1.1/.../ggsii_wave1_at_v_1_1.dta")
+x <- ggp_read("data/download/raw/ggs-ii/w1/at/ggs2_w1_at_v1.1.dta")
 attr(x$dem01, "label")             # "Gender"
 haven::as_factor(x$dem01)          # the value labels as factor levels
 ggp_read("....dta", labelled = FALSE)   # the codes only, as in the parquet files

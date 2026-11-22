@@ -89,7 +89,8 @@ naming <- function(p, slug, version) {
     return(list(rel_dir = "other", stem = paste0(slug, v)))
   }
   stem <- paste0(paste(Filter(nzchar, c(p$key, p$wave, tolower(p$country))), collapse = "_"), v)
-  list(rel_dir = tolower(paste(Filter(nzchar, c(p$series, p$wave, p$country)), collapse = "/")), stem = stem)
+  wave <- sub("^(w[0-9]+|pilot)(?=[a-z])", "\\1/", p$wave, perl = TRUE) # w2pilot is w2/pilot, pilotfollowup pilot/followup
+  list(rel_dir = tolower(paste(Filter(nzchar, c(p$series, wave, p$country)), collapse = "/")), stem = stem)
 }
 
 #' Slugs in catalogue order: project, round, wave, country, slug
