@@ -172,11 +172,19 @@ fetch_text <- function(p, url) {
   cli::cli_abort("giving up on {url}", class = "ggp_error")
 }
 
+# req_perform_parallel with `n` connections: newer httr2 has max_active, 1.0.0 takes a curl pool
+perform_parallel <- function(reqs, n) {
+  if ("max_active" %in% names(formals(httr2::req_perform_parallel))) {
+    httr2::req_perform_parallel(reqs, on_error = "continue", progress = FALSE, max_active = n)
+  } else {
+    httr2::req_perform_parallel(reqs, pool = curl::new_pool(total_con = n, host_con = n), on_error = "continue",
+                                progress = FALSE)
+  }
+}
+
 # many pages at once (one curl session, `concurrency` connections); a page that fails is tried again by fetch_text
 fetch_texts <- function(p, urls) {
-  pool <- curl::new_pool(total_con = p$concurrency, host_con = p$concurrency)
-  resps <- httr2::req_perform_parallel(lapply(urls, \(u) with_session(portal_request(u), p)), pool = pool,
-                                       on_error = "continue", progress = FALSE)
+  resps <- perform_parallel(lapply(urls, \(u) with_session(portal_request(u), p)), p$concurrency)
   Map(\(url, resp) {
     ok <- inherits(resp, "httr2_response") && httr2::resp_status(resp) < 400
     if (ok) {

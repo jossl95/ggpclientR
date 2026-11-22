@@ -48,7 +48,7 @@ country_columns <- function(path, country) {
   number <- if (is.na(number)) NULL else number
   own <- names[tolower(names) == "country"][1]
   if (is.null(number) && !is.na(own)) {
-    vals <- unique(stats::na.omit(arrow::read_parquet(path, col_select = own)[[1]]))
+    vals <- unique(stats::na.omit(arrow::read_parquet(path, col_select = !!own)[[1]]))
     # several countries in one file: no number of its own
     number <- if (length(vals) == 1 && is.numeric(vals) && vals >= 10 && vals < 100) as.integer(vals)
   }
