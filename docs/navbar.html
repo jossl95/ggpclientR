@@ -1,6 +1,6 @@
 <script>
-// Line the navbar up with the body text: the title starts at its left edge and the right menu (R/Python, GitHub,
-// dark mode, search) starts at its right edge. When the menu is collapsed (narrow screens) the last icon ends there.
+// Line the navbar up with the body text: the title starts at its left edge, and the right menu (R/Python, GitHub,
+// dark mode, search) starts at its right edge. Without room there (collapsed menu, no contents) it ends there instead.
 // Quarto's page grid differs per screen width, so measure instead of fixing a width in CSS.
 (() => {
   const nav = document.querySelector(".navbar-container"), main = document.querySelector("main.content");
@@ -11,9 +11,12 @@
     const m = main.getBoundingClientRect(), s = getComputedStyle(nav);
     const left = Math.min(...shown.map(b => b.left)), right = Math.max(...shown.map(b => b.right));
     nav.style.paddingLeft = Math.max(0, parseFloat(s.paddingLeft) + m.left - left) + "px";
-    const menu = nav.querySelector(".navbar-nav.ms-auto");
-    const wide = matchMedia("(min-width: 992px)").matches && menu && menu.getBoundingClientRect().width > 0;
-    const end = wide ? m.right + right - menu.getBoundingClientRect().left : m.right;  // where the last icon must end
+    const menu = nav.querySelector(".navbar-nav.ms-auto"), icon = menu && (menu.querySelector("i") || menu);
+    const wide = matchMedia("(min-width: 992px)").matches && icon && icon.getBoundingClientRect().width > 0;
+    // where the last icon must end: on wide screens the first icon (not its link's padding) starts at the text's
+    // right edge, if the menu fits there; otherwise (collapsed menu, or a page without contents) it ends at that edge
+    const beside = wide ? m.right + right - icon.getBoundingClientRect().left : Infinity;
+    const end = beside <= right + parseFloat(s.paddingRight) ? beside : m.right;
     nav.style.paddingRight = Math.max(0, parseFloat(s.paddingRight) + right - end) + "px";
   };
   const fit = () => {
