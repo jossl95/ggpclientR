@@ -16,8 +16,9 @@ library(ggpclient)
 data_dir <- commandArgs(trailingOnly = TRUE)[1]
 p <- ggp_client(if (is.na(data_dir)) "data" else data_dir, project = "ggs") # project GGS is rounds 1 and 2
 
-p |> ggp_sync()
 p |> ggp_login()
+p |> ggp_sync()
+
 steps <- list(
   download = p |> ggp_download(ext = "dta"),
   preprocess = p |> ggp_preprocess(),
