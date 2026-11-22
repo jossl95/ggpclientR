@@ -33,7 +33,7 @@ unpack_ffs <- function(archive, filename, dest, stem, ext, metadata, convert_to 
   files <- sort(list.files(tmp, recursive = TRUE, full.names = TRUE, all.files = TRUE, no.. = TRUE))
   suffix <- file_type(files)
   count <- table(suffix)
-  as_latin1 <- \(path, f) writeBin(charToRaw(iconv(f(iconv(rawToChar(readBin(path, "raw", file.size(path))), "latin1", "UTF-8")),
+  as_latin1 <- \(path, f) writeBin(charToRaw(iconv(f(iconv(rawToChar(readBin(path, "raw", file.size(path))), "latin1", "UTF-8")), # nolint
                                                   "UTF-8", "latin1")), path)
   for (sps in files[suffix == ".sps"]) {
     dat <- if (count[".dat"] %in% 1L) paste0(stem, ".dat")

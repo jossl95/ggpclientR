@@ -6,7 +6,7 @@ utils::globalVariables(c("run", "a")) # the names inside the mirai expression
 # what the background process runs: the same client, rebuilt from its settings (a connection cannot be sent)
 async_run <- function(dir, concurrency, force, filters, fn, args, base) {
   options(ggpclient.base = base)
-  q <- do.call(ggpclient::ggp_client, c(list(dir, concurrency = concurrency, force = force), filters))
+  q <- do.call(ggpclient::ggp_client, c(list(dir, concurrency = concurrency, force = force), filters)) # nolint: line_length_linter.
   do.call(getExportedValue("ggpclient", fn), c(list(q), args))
 }
 
@@ -58,7 +58,7 @@ async_step <- function(p, fn, args) {
 #' nrow(ggp_rows(p))
 #' }
 #' @export
-ggp_client <- function(data_dir = "data", access_url = NULL, concurrency = 8, project = NULL, round = NULL,
+ggp_client <- function(data_dir = "data", access_url = NULL, concurrency = 4, project = NULL, round = NULL,
                        wave = NULL, country = NULL, ids = NULL, all_versions = FALSE, force = FALSE) {
   if (concurrency < 1) {
     cli::cli_abort("{.arg concurrency} must be 1 or more", class = "ggp_error") # 0 would wait forever
