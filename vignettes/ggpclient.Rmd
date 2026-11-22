@@ -1,0 +1,52 @@
+---
+title: "Getting started with ggpclient"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting started with ggpclient}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(eval = FALSE, collapse = TRUE, comment = "#>")
+```
+
+ggpclient downloads the data of the [GGP data portal](https://www.ggp-i.org), labels it, and stacks the countries of each
+round and wave. It is the R version of the Python package
+[ggp_client](https://jossl95.github.io/ggp_client/): same steps, same folders, same files.
+
+## The workflow
+
+The access link the portal e-mails you works like a password. Put it in `~/.Renviron` as `GGP_ACCESS_URL=<link>`, or
+paste it when asked.
+
+```{r}
+library(ggpclient)
+
+p <- ggp_client(project = "ggs", round = 2) # data_dir defaults to "data"
+
+p |> ggp_sync()                # index the portal
+ggp_rows(p)                    # one row per file
+p |> ggp_download(ext = "dta") # done, skipped, failed
+p |> ggp_preprocess()          # each file to parquet + meta.json
+p |> ggp_consolidate()         # one parquet per wave, all countries stacked
+p |> ggp_stata()               # the same as labelled Stata files
+```
+
+## Labels
+
+```{r}
+df <- ggp_read("data/download/consolidated/ggs-ii_w1.parquet", col_select = c("ggp_country", "dem01"))
+meta <- jsonlite::read_json("data/download/consolidated/ggs-ii_w1.meta.json")
+vl <- meta$value_labels$dem01
+df$gender <- factor(df$dem01, levels = as.integer(names(vl)), labels = unlist(vl))
+```
+
+Labels are harmonized over the countries, each voting once: a value gets the label more than half of the countries use,
+else all labels joined with `" / "`. Codes never change; `original_labels` lists every wording.
+
+## Next to the Python package
+
+Both packages write the same files, so one can read what the other made. The test `tests/testthat/test-equivalence.R`
+runs both on the same downloads, the Python one through reticulate, and compares data and labels. Run it with
+`RETICULATE_PYTHON` set to a Python that has ggp_client.

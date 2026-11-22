@@ -1,0 +1,7 @@
+url: https://jossl95.github.io/ggpclientR/
+template: {bootstrap: 5}
+reference:
+  - title: The workflow
+    contents: [ggp_client, ggp_sync, ggp_login, ggp_download, ggp_preprocess, ggp_consolidate, ggp_stata, ggp_rows]
+  - title: Reading and converting
+    contents: [ggp_read, ggp_meta, ggp_convert_ffs]
