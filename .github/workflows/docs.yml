@@ -3,7 +3,7 @@ name: docs
 on:
   push:
     branches: [main]
-    paths: ["docs/**", ".github/workflows/docs.yml"]
+    paths: ["docs/**", ".github/workflows/docs.yml", "DESCRIPTION"]
   workflow_dispatch:
 
 permissions:
@@ -20,6 +20,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # the version beside the title must be the package's
+      - run: |
+          v=$(sed -n 's/^Version: //p' DESCRIPTION)
+          grep -q "text: \"$v\"" docs/_quarto.yml || { echo "::error::Set the version in docs/_quarto.yml to $v (DESCRIPTION)"; exit 1; }
       - uses: quarto-dev/quarto-actions/setup@v2
       - run: quarto render docs
       - uses: actions/upload-pages-artifact@v3

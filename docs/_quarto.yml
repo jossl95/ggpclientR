@@ -10,8 +10,7 @@ website:
   repo-actions: [source, issue]
   navbar:
     left:
-      - href: index.qmd
-        text: Home
+      - text: "0.1.0"  # the package version: keep in step (the docs workflow checks)
       - getting-started.qmd
       - reference.qmd
       - text: Articles
@@ -23,6 +22,7 @@ website:
     right:
       - icon: python
         href: https://jossl95.github.io/ggp_client/
+        aria-label: Python package
       - icon: github
         href: https://github.com/jossl95/ggpclientR
   page-footer:
@@ -35,3 +35,4 @@ format:
       dark: darkly
     toc: true
     code-copy: true
+    css: styles.css
