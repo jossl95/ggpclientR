@@ -1,6 +1,8 @@
 # Access to the GGP portal: sync the catalogue, log in, download and unpack files.
 
 # run a step of the client in a background R process (mirai): the console stays free, several steps can run at once
+utils::globalVariables(c("run", "a")) # the names inside the mirai expression
+
 # what the background process runs: the same client, rebuilt from its settings (a connection cannot be sent)
 async_run <- function(dir, concurrency, force, filters, fn, args, base) {
   options(ggpclient.base = base)
