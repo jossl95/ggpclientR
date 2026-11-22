@@ -17,7 +17,7 @@ test_that("a client holds the catalogue and the rows its filters select", {
 test_that("sync indexes the catalogue, download unpacks it, and every step can be repeated", {
   local_portal()
   d <- withr::local_tempdir()
-  p <- ggp_client(d, token())
+  p <- ggp_client(d, token(), concurrency = 2)  # 6 downloads in 3 batches
   s <- ggp_sync(p)
   # v1.0 via "other versions" (v1.1 is the latest: one row), HH and NKPS via the access page
   expect_equal(c(s$done, nrow(s$failed)), c(7L, 0L))

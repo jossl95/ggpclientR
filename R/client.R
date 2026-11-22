@@ -322,6 +322,7 @@ download_one <- function(j) {
     httr2::request(j$url) |>
       httr2::req_user_agent("ggpclient/0.1") |>
       httr2::req_options(cookiefile = j$jar) |>
+      httr2::req_retry(max_tries = 3, retry_on_failure = TRUE) |> # a dropped connection or 503: try again, as Python does
       httr2::req_error(is_error = \(r) FALSE) |>
       httr2::req_perform(path = j$part),
     error = \(e) e)
@@ -419,20 +420,24 @@ ggp_download <- function(p, ext = NULL, metadata = FALSE, rows = NULL, root = NU
   })
 
   # each worker downloads its file and unpacks it at once, `concurrency` at a time: no pile of archives on disk
-  res <- parallel_map(jobs, download_one, p$concurrency)
+  # recorded in the catalogue per batch, so an interrupted run keeps what finished
+  # shortcut: a batch waits for its slowest file; record results as they finish if that ever costs much time
   done <- 0L
-  for (i in seq_along(jobs)) {
-    j <- jobs[[i]]
-    out <- res[[i]]$value
-    msg <- res[[i]]$error %||% out$error
-    if (!is.null(msg)) {
-      failed <- rbind(failed, failures(j$t$r$slug, msg))
-      ggp_log(p$log, "error", "failed %s: %s", j$t$r$slug, msg)
-    } else {
-      keep <- c(j$t$k, if (identical(j$rel, j$t$r$local_path)) j$t$prev)
-      db_mark_downloaded(p$con, j$t$r$download_id, j$rel, keep)
-      done <- done + 1L
-      ggp_log(p$log, "info", "downloaded %s: %.1f MB, %d files kept in %s", j$t$r$slug, out$size / 1e6, out$n, j$rel)
+  for (batch in split(seq_along(jobs), (seq_along(jobs) - 1L) %/% p$concurrency)) {
+    res <- parallel_map(jobs[batch], download_one, p$concurrency)
+    for (k in seq_along(batch)) {
+      j <- jobs[[batch[k]]]
+      out <- res[[k]]$value
+      msg <- res[[k]]$error %||% out$error
+      if (!is.null(msg)) {
+        failed <- rbind(failed, failures(j$t$r$slug, msg))
+        ggp_log(p$log, "error", "failed %s: %s", j$t$r$slug, msg)
+      } else {
+        keep <- c(j$t$k, if (identical(j$rel, j$t$r$local_path)) j$t$prev)
+        db_mark_downloaded(p$con, j$t$r$download_id, j$rel, keep)
+        done <- done + 1L
+        ggp_log(p$log, "info", "downloaded %s: %.1f MB, %d files kept in %s", j$t$r$slug, out$size / 1e6, out$n, j$rel)
+      }
     }
   }
   ggp_log(p$log, "info", "download: %d done, %d skipped, %d failed", done, skipped, nrow(failed))

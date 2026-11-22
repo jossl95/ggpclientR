@@ -76,6 +76,11 @@ test_that("read, preprocess and consolidate", {
   expect_equal(country_columns(f, "XX"), "v1_5501")
   arrow::write_parquet(data.frame(country = c(55, 56), v1_5501 = 1:2), f)
   expect_equal(country_columns(f, ""), character())
+  # the file's own country variable (21) wins over the table (DE is 14); the table is the fallback without one
+  arrow::write_parquet(data.frame(country = 21, v1_2101 = 1, v1_1401 = 1), f)
+  expect_equal(country_columns(f, "DE"), "v1_2101")
+  arrow::write_parquet(data.frame(v1_2101 = 1, v1_1401 = 1), f)
+  expect_equal(country_columns(f, "DE"), "v1_1401")
   expect_length(list.files(d, "\\.part", recursive = TRUE, all.files = TRUE), 0)
 })
 

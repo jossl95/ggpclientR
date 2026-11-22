@@ -11,7 +11,7 @@
 #
 # Country-specific variables are left out: GGS names them after the GGP country number, <name>_<country><nn>
 # (aut01a_2101 and covid_2201a are Austria's 21 and Estonia's 22; dem07_1401 is Germany's 14). The number comes from
-# COUNTRY_NUMBERS, or else from the file's own `country` variable. The per-country files in download/processed keep
+# file's own `country` variable when it holds one value in 10-99, else from COUNTRY_NUMBERS. The per-country files in download/processed keep
 # them. Each result gets <name>.meta.json: the variable and value labels of its input files, harmonized (see
 # merged_meta). to_stata() writes <name>.dta from the two, with the labels applied. An existing result is kept while
 # it is up to date: it holds exactly the files of the rows given and is newer than all of them. Otherwise (a country
@@ -44,13 +44,16 @@ consolidation_groups <- function(rows, root, pre) {
 #' @noRd
 country_columns <- function(path, country) {
   names <- parquet_columns(path)
-  number <- COUNTRY_NUMBERS[toupper(country %||% "")]
-  number <- if (is.na(number)) NULL else number
+  number <- NULL
   own <- names[tolower(names) == "country"][1]
-  if (is.null(number) && !is.na(own)) {
+  if (!is.na(own)) { # the file's own number first, as the contract says; the table is the fallback
     vals <- unique(stats::na.omit(arrow::read_parquet(path, col_select = !!own)[[1]]))
     # several countries in one file: no number of its own
     number <- if (length(vals) == 1 && is.numeric(vals) && vals >= 10 && vals < 100) as.integer(vals)
+  }
+  if (is.null(number)) {
+    number <- COUNTRY_NUMBERS[toupper(country %||% "")]
+    number <- if (is.na(number)) NULL else number
   }
   if (is.null(number)) character() else names[grepl(sprintf("_%d\\d\\d[a-z]*$", number), names, ignore.case = TRUE)]
 }
