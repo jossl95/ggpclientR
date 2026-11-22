@@ -40,8 +40,8 @@ async_step <- function(p, fn, args) {
 #' `data_dir/download/consolidated`; the catalogue, session and log stay in `data_dir`.
 #'
 #' @param data_dir Where everything is kept.
-#' @param access_url The access link the portal e-mails you. It works like a password: it is never logged, stored or
-#'   shown. Better not to pass it here; see [ggp_login()].
+#' @param access_url The access link the portal e-mails you, for scripts that cannot ask. Better leave it out and paste
+#'   the link when [ggp_login()] asks (hidden). It works like a password: it is never logged, stored or shown.
 #' @param concurrency How many downloads, and how many files processed, at a time.
 #' @param project,round,wave,country Filters: one value, several, or `NULL` for all. Case does not matter:
 #'   `project = "ggs"`, `round = 2` (or `"ii"`), `wave = "w1"` (or `1`), `country = c("nl", "at")`. A value that is
@@ -69,7 +69,7 @@ ggp_client <- function(data_dir = "data", access_url = NULL, concurrency = 8, pr
   p$downloads <- file.path(data_dir, "download", "raw")
   p$processed <- file.path(data_dir, "download", "processed")
   p$consolidated <- file.path(data_dir, "download", "consolidated")
-  url <- access_url %||% Sys.getenv("GGP_ACCESS_URL", NA_character_)
+  url <- access_url %||% NA_character_
   p$access_url <- local({ # a function, so that printing or str() of the client never shows the link
     u <- url
     function() u
@@ -246,11 +246,10 @@ logged_in <- function(p) grepl("/logout/", fetch_text(p, "/form/"), fixed = TRUE
 
 #' Log in to the portal
 #'
-#' Reuses the saved session (`data_dir/.session`, or the Python package's `.session.json`) if it still works, else logs in with the access link. The link
-#' comes from the `access_url` argument of [ggp_client()], then the `GGP_ACCESS_URL` environment variable, and if
-#' neither is set you are asked for it (input hidden; needs the askpass package). The link works like a password: do
-#' not put it in a script. A good place is your user-level `~/.Renviron` (`usethis::edit_r_environ()`):
-#' `GGP_ACCESS_URL=<link>`. Syncing and downloading log in by themselves when needed.
+#' Reuses the saved session (`data_dir/.session`, or the Python package's `.session.json`) if it still works, else
+#' asks you to paste the access link the portal e-mails you. The input is hidden. The link is valid for seven days and
+#' works like a password, so it is only asked for: there is no environment variable for it, it is not stored, and it is
+#' never logged. The saved session is what is reused. Syncing and downloading log in by themselves when needed.
 #'
 #' @param p A [ggp_client()].
 #' @return `p`, invisibly. An error of class `ggp_login_error` when there is no valid session and no usable link.
@@ -269,7 +268,7 @@ ggp_login <- function(p) {
   }
   if (!nzchar(url)) {
     cli::cli_abort(c("no valid session",
-                     "i" = "pass {.arg access_url}, set {.envvar GGP_ACCESS_URL}, or run in a terminal to be asked",
+                     "i" = "run {.code p |> ggp_login()} in a terminal or RStudio to paste the link (input is hidden)",
                      "i" = "request a fresh link by e-mail on the portal login page"), class = "ggp_login_error", call = NULL)
   }
   if (!startsWith(url, paste0(ggp_base(), "/"))) {

@@ -13,6 +13,7 @@ RoxygenNote: 7.3.1
 Depends: R (>= 4.1.0)
 Imports:
     archive,
+    askpass,
     cli,
     curl,
     DBI,
@@ -26,7 +27,6 @@ Imports:
     xml2
 Suggests:
     dplyr,
-    askpass,
     knitr,
     reticulate,
     rmarkdown,

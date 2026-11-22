@@ -20,8 +20,8 @@ ggp_client(
 \arguments{
 \item{data_dir}{Where everything is kept.}
 
-\item{access_url}{The access link the portal e-mails you. It works like a password: it is never logged, stored or
-shown. Better not to pass it here; see \code{\link[=ggp_login]{ggp_login()}}.}
+\item{access_url}{The access link the portal e-mails you, for scripts that cannot ask. Better leave it out and paste
+the link when \code{\link[=ggp_login]{ggp_login()}} asks (hidden). It works like a password: it is never logged, stored or shown.}
 
 \item{concurrency}{How many downloads, and how many files processed, at a time.}
 

@@ -17,14 +17,15 @@ round and wave. It is the R version of the Python package
 
 ## The workflow
 
-The access link the portal e-mails you works like a password. Put it in `~/.Renviron` as `GGP_ACCESS_URL=<link>`, or
-paste it when asked.
+The access link the portal e-mails you works like a password and is valid for seven days. `p |> ggp_login()` asks for
+it (hidden); it is never kept in the environment.
 
 ```{r}
 library(ggpclient)
 
 p <- ggp_client(project = "ggs", round = 2) # data_dir defaults to "data"
 
+p |> ggp_login()               # paste the access link (hidden); the session is saved
 p |> ggp_sync()                # index the portal
 ggp_rows(p)                    # one row per file
 p |> ggp_download(ext = "dta") # done, skipped, failed

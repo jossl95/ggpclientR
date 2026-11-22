@@ -137,13 +137,12 @@ test_that("the link is asked for only when needed", {
   expect_equal(asked, 1)
 })
 
-test_that("the environment variable is used before asking", {
+test_that("an environment variable is not used: the link is asked for", {
   local_portal()
   d <- withr::local_tempdir()
-  local_mocked_bindings(askpass = \(prompt) stop("asked"), .package = "askpass")
-  withr::local_envvar(GGP_ACCESS_URL = token())
-  ggp_login(ggp_client(d))
-  expect_true(file.size(file.path(d, ".session")) > 0)
+  local_mocked_bindings(askpass = \(prompt) NULL, .package = "askpass")
+  withr::local_envvar(GGP_ACCESS_URL = token())  # a link is valid for seven days: it is not kept in the environment
+  expect_error(ggp_login(ggp_client(d)), "no valid session", class = "ggp_login_error")
 })
 
 test_that("a broken session file means log in again", {

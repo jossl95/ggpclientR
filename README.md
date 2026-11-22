@@ -18,10 +18,10 @@ p |> ggp_sync()                               # index the portal into data/catal
 ggp_rows(p)                                   # what is there: one row per file
 ```
 
-Downloading needs the access link the portal e-mails you. The first download asks you to paste it (the input is
-hidden; this needs the askpass package), then the session is saved in `data/.session` and reused. You can also put
-`GGP_ACCESS_URL=<link>` in your user-level `~/.Renviron` (`usethis::edit_r_environ()`). Treat the link like a password:
-do not commit it or type it in a script, where it stays in your history.
+Downloading needs the access link the portal e-mails you. `p |> ggp_login()` asks you to paste it (the input is
+hidden), then the session is saved in `data/.session` and reused; syncing and downloading log in by themselves when
+needed. The link is valid for seven days, so it is only asked for: there is no environment variable for it, and it is
+never stored or logged. Do not type it in a script, where it stays in your history.
 
 ## Use case: GGS-II in Stata format, consolidated to parquet
 

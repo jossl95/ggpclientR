@@ -117,7 +117,7 @@ local_portal <- function(env = parent.frame(), at_zip = NULL) {
   skip_if_not_installed("webfakes")
   server <- if (is.null(at_zip)) shared_portal() else start_portal(portal_routes(at_zip), env)
   withr::local_options(ggpclient.base = sub("/$", "", server$url()), .local_envir = env)
-  withr::local_envvar(NO_PROXY = "127.0.0.1,localhost", no_proxy = "127.0.0.1,localhost", GGP_ACCESS_URL = NA,
+  withr::local_envvar(NO_PROXY = "127.0.0.1,localhost", no_proxy = "127.0.0.1,localhost",
                       .local_envir = env)
 }
 
