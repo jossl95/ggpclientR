@@ -46,8 +46,8 @@ background processes.
 ## Where to next
 
 - [Getting started](getting-started.qmd): install, log in, download.
-- [Use case: GGS-II](ggs-ii.qmd): every GGS-II country in Stata format, consolidated to parquet.
-- [Labels](labels.qmd): reading labelled data, the `meta.json` files, and how labels are harmonized.
-- [FFS data](ffs.qmd): fixed-width data with SPSS syntax.
+- [GGS-II: every country in one dataset per wave](ggs-ii.qmd): every GGS-II country in Stata format, consolidated to parquet.
+- [Variable and value labels](labels.qmd): putting labels on the data, the `meta.json` files, and how labels are harmonized.
+- [Reading the Family and Fertility Surveys (FFS)](ffs.qmd): fixed-width data with SPSS syntax.
 - [Reference](reference.qmd): the functions and the data folder.
-- [Contract](contract.qmd): what this package and the Python package both guarantee.
+- [How the R and Python packages stay in step](contract.qmd): what both packages guarantee.

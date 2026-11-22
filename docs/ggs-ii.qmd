@@ -1,5 +1,5 @@
 ---
-title: "Use case: GGS-II, Stata files consolidated to parquet"
+title: "GGS-II: every country in one dataset per wave"
 ---
 
 The goal: every country of GGS round 2 (GGS-II), downloaded in Stata format, and stacked into one dataset per wave,

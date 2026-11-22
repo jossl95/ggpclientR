@@ -1,5 +1,5 @@
 ---
-title: "FFS data"
+title: "Reading the Family and Fertility Surveys (FFS)"
 ---
 
 The Family and Fertility Surveys (FFS, 1990s) come as fixed-width text with SPSS syntax, not as Stata or SPSS files.
