@@ -116,21 +116,28 @@ code <- function(k) vapply(k, \(v) format(v, scientific = FALSE, trim = TRUE, di
 # the code of a value label as JSON text; Stata's extended missing values (.a, .b, ...) are "a", "b", ...
 value_code <- function(k) ifelse(is.na(k), haven::na_tag(k), code(k))
 
-#' The labels of a dta, sav or rds file
+#' The labels of a data file
 #'
 #' The variable labels, value labels and user-defined missing values of a Stata or SPSS file, as a list that
-#' [jsonlite::toJSON()] turns into the `.meta.json` files this package writes.
+#' [jsonlite::toJSON()] turns into the `.meta.json` files this package writes. For a parquet file, its `.meta.json`.
+#' [ggp_label()] puts them on the data.
 #'
-#' @param path A `.dta`, `.sav` or `.rds` file.
-#' @return `NULL` for other types, else a list: `file_label`, `column_labels` (variable -> label), `value_labels`
-#'   (variable -> code -> label; codes are text), `missing_ranges` (sav) and `original_types` (Stata or SPSS formats).
+#' @param path A `.dta`, `.sav`, `.rds` or `.parquet` file.
+#' @return `NULL` for other types (and a parquet file without `.meta.json`), else a list: `file_label`,
+#'   `column_labels` (variable -> label), `value_labels` (variable -> code -> label; codes are text), `missing_ranges`
+#'   (sav) and `original_types` (Stata or SPSS formats). A consolidated file's also has `original_labels`.
 #' @examples
 #' \dontrun{
 #' m <- ggp_meta("ggsii_wave1_at_v_1_1.dta")
 #' m$value_labels$dem01
+#' m <- ggp_meta("data/download/consolidated/ggs-ii_w1.parquet")
 #' }
 #' @export
 ggp_meta <- function(path) {
+  if (file_type(path) == ".parquet") {
+    json <- meta_of(path)
+    return(if (file.exists(json)) jsonlite::fromJSON(json, simplifyVector = FALSE))
+  }
   if (!file_type(path) %in% LABELLED) {
     return(NULL)
   }

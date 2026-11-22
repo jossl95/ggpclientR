@@ -281,12 +281,19 @@ convert_ffs <- function(folder, exts, name = CONVERTED, force = FALSE, out_dir =
     targets <- file.path(out_dir, paste0(base, ".", exts))
     todo <- targets[force | !file.exists(targets)]
     if (length(todo)) {
-      d <- s$read()
+      d <- lower_case(s$read(), basename(s$path))
       for (t in todo) write_data(d$df, d$meta, t, force)
     }
     n <- n + length(targets)
   }
   n
+}
+
+# an FFS dataset (read_ffs) with lower-case variable names, as the converted files have them
+lower_case <- function(d, where) {
+  names(d$df) <- lower_names(names(d$df), where)
+  d$meta <- lower_keys(d$meta, c("column_labels", "value_labels", "missing_ranges"))
+  d
 }
 
 #' The .sps with every $ in a variable name as _, and FILE= pointing at dat_name (the .dat next to it)

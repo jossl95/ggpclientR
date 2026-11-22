@@ -2,24 +2,27 @@
 % Please edit documentation in R/read.R
 \name{ggp_meta}
 \alias{ggp_meta}
-\title{The labels of a dta, sav or rds file}
+\title{The labels of a data file}
 \usage{
 ggp_meta(path)
 }
 \arguments{
-\item{path}{A \code{.dta}, \code{.sav} or \code{.rds} file.}
+\item{path}{A \code{.dta}, \code{.sav}, \code{.rds} or \code{.parquet} file.}
 }
 \value{
-\code{NULL} for other types, else a list: \code{file_label}, \code{column_labels} (variable -> label), \code{value_labels}
-(variable -> code -> label; codes are text), \code{missing_ranges} (sav) and \code{original_types} (Stata or SPSS formats).
+\code{NULL} for other types (and a parquet file without \code{.meta.json}), else a list: \code{file_label},
+\code{column_labels} (variable -> label), \code{value_labels} (variable -> code -> label; codes are text), \code{missing_ranges}
+(sav) and \code{original_types} (Stata or SPSS formats). A consolidated file's also has \code{original_labels}.
 }
 \description{
 The variable labels, value labels and user-defined missing values of a Stata or SPSS file, as a list that
-\code{\link[jsonlite:fromJSON]{jsonlite::toJSON()}} turns into the \code{.meta.json} files this package writes.
+\code{\link[jsonlite:toJSON]{jsonlite::toJSON()}} turns into the \code{.meta.json} files this package writes. For a parquet file, its \code{.meta.json}.
+\code{\link[=ggp_label]{ggp_label()}} puts them on the data.
 }
 \examples{
 \dontrun{
 m <- ggp_meta("ggsii_wave1_at_v_1_1.dta")
 m$value_labels$dem01
+m <- ggp_meta("data/download/consolidated/ggs-ii_w1.parquet")
 }
 }

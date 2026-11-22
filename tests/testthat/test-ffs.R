@@ -6,22 +6,22 @@ test_that("an FFS dataset is read from its .dat with the labels of its .sps", {
   expect_equal(n, 3L)
 
   sav <- haven::read_sav(file.path(d, "ffs_us_v1.0.sav"), user_na = TRUE)
-  expect_equal(names(sav), c("COUNTRY", "HHNUM", "WEIGHT", "V004_01", "V005_01"))  # $ is not allowed in Stata
-  expect_equal(as.vector(sav$HHNUM), c("A0001", "A0002"))
-  expect_equal(as.vector(sav$WEIGHT), c(0.7035, 1.2))
-  expect_equal(as.numeric(sav$V004_01), c(1, 98))
-  expect_equal(is.na(sav$V005_01), c(FALSE, TRUE))  # * is missing
-  expect_equal(attr(sav$V004_01, "label"), 'Born in Nieder"sterreich')  # the stray quote does not end it
-  expect_equal(attr(sav$WEIGHT, "label"), "Caseweight in US$")
-  expect_equal(attr(sav$V005_01, "labels"), attr(sav$V004_01, "labels"))
-  expect_equal(attr(sav$V004_01, "labels"), c(One = 1, `Missing value` = 98))
-  expect_equal(attr(sav$COUNTRY, "labels"), c(`United States` = 23))
-  expect_equal(attr(sav$V004_01, "na_values"), 98)
+  expect_equal(names(sav), c("country", "hhnum", "weight", "v004_01", "v005_01"))  # $ is not allowed in Stata
+  expect_equal(as.vector(sav$hhnum), c("A0001", "A0002"))
+  expect_equal(as.vector(sav$weight), c(0.7035, 1.2))
+  expect_equal(as.numeric(sav$v004_01), c(1, 98))
+  expect_equal(is.na(sav$v005_01), c(FALSE, TRUE))  # * is missing
+  expect_equal(attr(sav$v004_01, "label"), 'Born in Nieder"sterreich')  # the stray quote does not end it
+  expect_equal(attr(sav$weight, "label"), "Caseweight in US$")
+  expect_equal(attr(sav$v005_01, "labels"), attr(sav$v004_01, "labels"))
+  expect_equal(attr(sav$v004_01, "labels"), c(One = 1, `Missing value` = 98))
+  expect_equal(attr(sav$country, "labels"), c(`United States` = 23))
+  expect_equal(attr(sav$v004_01, "na_values"), 98)
 
   dta <- haven::read_dta(file.path(d, "ffs_us_v1.0.dta"))
-  expect_equal(attr(dta$V004_01, "labels"), c(One = 1, `Missing value` = 98))
-  expect_equal(attr(dta$COUNTRY, "label"), "ISO country code")
-  expect_equal(readLines(file.path(d, "ffs_us_v1.0.csv"))[1], '"COUNTRY","HHNUM","WEIGHT","V004_01","V005_01"')
+  expect_equal(attr(dta$v004_01, "labels"), c(One = 1, `Missing value` = 98))
+  expect_equal(attr(dta$country, "label"), "ISO country code")
+  expect_equal(readLines(file.path(d, "ffs_us_v1.0.csv"))[1], '"country","hhnum","weight","v004_01","v005_01"')
 
   writeLines("mine", file.path(d, "ffs_us_v1.0.csv"))
   expect_equal(convert_ffs(d, "csv", "ffs_us_v1.0"), 1L)  # exists: kept
@@ -71,6 +71,6 @@ test_that("an FFS download of two samples with ready-made .sav files (Estonia)",
   expect_equal(tree(dest), c("converted_data_est_f.dta", "converted_data_est_m.dta", "ffs_ee_v1.0_est_f.dat",
                              "ffs_ee_v1.0_est_f.sav", "ffs_ee_v1.0_est_m.dat", "ffs_ee_v1.0_est_m.sav"))
   x <- haven::read_dta(file.path(dest, "converted_data_est_f.dta"))
-  expect_equal(names(x), "IND01_01")
-  expect_equal(attr(x$IND01_01, "labels"), c(yes = 1, no = 2))
+  expect_equal(names(x), "ind01_01")
+  expect_equal(attr(x$ind01_01, "labels"), c(yes = 1, no = 2))
 })

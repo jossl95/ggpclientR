@@ -1,9 +1,10 @@
 ---
-title: "Labels"
+title: "Variable and value labels"
 ---
 
 Parquet holds values, not labels. ggpclient keeps the labels of every `.dta`, `.sav` and `.rds` file, as haven reads
-them, in a `meta.json` next to its parquet file.
+them, in a `meta.json` next to its parquet file. Variable names are lower case, in the parquet files and in their
+`meta.json` (`DEM01` in a download is `dem01`); the raw downloads keep the portal's names.
 
 ## Labelled data in R
 
@@ -18,15 +19,26 @@ ggp_read("....dta", labelled = FALSE)   # the codes only, as in the parquet file
 
 ## From the parquet files
 
-```r
-df <- ggp_read("data/download/consolidated/ggs-ii_w1.parquet", col_select = c("ggp_country", "dem01"))
-meta <- jsonlite::read_json("data/download/consolidated/ggs-ii_w1.meta.json")
+`ggp_label()` puts the labels of a parquet file's `meta.json` back on its data, as haven labelled columns:
 
+```r
+path <- "data/download/consolidated/ggs-ii_w1.parquet"
+df <- ggp_read(path, col_select = c("ggp_country", "dem01"))
+df <- ggp_label(df, ggp_meta(path))   # ggp_meta() reads the meta.json next to the parquet
+
+attr(df$dem01, "label")               # "Gender"
+haven::as_factor(df$dem01)            # the labels instead of the codes
+haven::as_factor(df)                  # every labelled column at once
+```
+
+Codes without a label keep their value. `columns = "dem01"` labels only those columns.
+
+The labels themselves:
+
+```r
+meta <- ggp_meta(path)
 meta$column_labels$dem01      # "Gender"                                  variable -> variable label
 meta$value_labels$dem01       # list(`1` = "Male", `2` = "Female", ...)   variable -> value -> label
-
-vl <- meta$value_labels$dem01
-df$gender <- factor(df$dem01, levels = as.integer(names(vl)), labels = unlist(vl))
 ```
 
 JSON keys are text, so codes are `"1"`, not `1`. Letter codes such as `"b"` are Stata's extended missing values (`.b`).

@@ -18,8 +18,8 @@ The files written, invisibly.
 }
 \description{
 Reads an FFS \code{.dat} with the layout and labels of its \code{.sps} and saves it, with variable and value labels, next
-to the \code{.sps}. Every \code{$} in a variable name becomes \verb{_} (Stata does not allow \code{$}). Missing value codes stay in the
-data; sav also marks them as missing, as SPSS would.
+to the \code{.sps}. Every \code{$} in a variable name becomes \verb{_} (Stata does not allow \code{$}), and names are lower case
+(\verb{IND01$01} becomes \code{ind01_01}). Missing value codes stay in the data; sav also marks them as missing, as SPSS would.
 }
 \examples{
 \dontrun{

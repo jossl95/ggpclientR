@@ -104,7 +104,8 @@ jobs <- function(rows, root, out, force = FALSE) {
     s <- sources(r, root, out)
     for (i in seq_len(nrow(s))) {
       target <- parquet_of(out, s$rel[i])
-      if (!force && file.exists(target) && (!file_type(s$path[i]) %in% LABELLED || file.exists(meta_of(target)))) {
+      if (!force && file.exists(target) && has_lower_names(target) &&
+          (!file_type(s$path[i]) %in% LABELLED || file.exists(meta_of(target)))) {
         skipped <- skipped + 1L
       } else {
         if (force) { # the parquet and meta of an older, differently cased name would stay behind
@@ -116,6 +117,14 @@ jobs <- function(rows, root, out, force = FALSE) {
     }
   }
   list(todo = todo, skipped = skipped)
+}
+
+# TRUE if every column name of the parquet is lower case; FALSE if it is unreadable (made by an older version: redo)
+has_lower_names <- function(parquet) {
+  tryCatch({
+    n <- parquet_columns(parquet)
+    all(n == tolower(n))
+  }, error = \(e) FALSE)
 }
 
 #' The data frame of one file with the provenance columns; ggp_file is rel
@@ -140,11 +149,16 @@ write_json <- function(x, path) {
 #' @noRd
 to_parquet <- function(src, rel, target, r) {
   dir.create(dirname(target), recursive = TRUE, showWarnings = FALSE)
-  df <- with_provenance(ggp_read(src, labelled = FALSE), r, rel)
+  df <- ggp_read(src, labelled = FALSE)
+  names(df) <- lower_names(names(df), rel)
+  df <- with_provenance(df, r, rel)
   atomic(target, \(part) {
     arrow::write_parquet(df, part)
     m <- ggp_meta(src)
-    if (!is.null(m)) write_json(c(list(file = rel), m), meta_of(target))
+    if (!is.null(m)) {
+      m <- lower_keys(m, c("column_labels", "value_labels", "missing_ranges", "original_types"))
+      write_json(c(list(file = rel), m), meta_of(target))
+    }
   })
 }
 

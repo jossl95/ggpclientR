@@ -59,18 +59,17 @@ files. `p |> ggp_stata()` also writes each consolidated dataset as a labelled St
 
 ## Labels (meta.json)
 
-The parquet files hold the codes. Their labels, as haven reads them from the `.dta` and `.sav` files, are in the
-`.meta.json` next to them:
+The parquet files hold the codes, with lower-case variable names (the raw downloads keep the portal's). Their
+labels, as haven reads them from the `.dta` and `.sav` files, are in the `.meta.json` next to them; `ggp_label()` puts
+them back on the data:
 
 ```r
-df <- ggp_read("data/download/consolidated/ggs-ii_w1.parquet", col_select = c("ggp_country", "dem01"))
-meta <- jsonlite::read_json("data/download/consolidated/ggs-ii_w1.meta.json")
-
-meta$column_labels$dem01   # "Gender"                                       variable -> variable label
-meta$value_labels$dem01    # list(`1` = "Male", `2` = "Female", ...)        variable -> value -> label
-
-vl <- meta$value_labels$dem01
-df$gender <- factor(df$dem01, levels = as.integer(names(vl)), labels = unlist(vl))
+path <- "data/download/consolidated/ggs-ii_w1.parquet"
+df <- ggp_read(path, col_select = c("ggp_country", "dem01"))
+df <- ggp_label(df, ggp_meta(path))   # haven labelled columns
+attr(df$dem01, "label")               # "Gender"
+haven::as_factor(df$dem01)            # the labels instead of the codes
+ggp_meta(path)$value_labels$dem01     # list(`1` = "Male", `2` = "Female", ...)
 ```
 
 The consolidated labels are harmonized over the countries, each country voting once:

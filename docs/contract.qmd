@@ -1,5 +1,5 @@
 ---
-title: "Contract with the Python package"
+title: "How the R and Python packages stay in step"
 ---
 
 ggpclient and the Python package [ggp-client](https://jossl95.github.io/ggp_client/) are two implementations of one
@@ -8,7 +8,7 @@ contract: a file written by one is read by the other. The contract is on
 
 - the same catalogue (`catalogue.sqlite`) and login (`.session.json`);
 - the same folders and lower-case file names under `download/{raw, processed, consolidated}`;
-- the same `ggp_*` provenance columns and the same `meta.json` format;
+- the same `ggp_*` provenance columns and the same `meta.json` format, with lower-case variable names;
 - the same rules: country-specific variables left out (the file's own `country` variable first, then a table), labels
   harmonized with one vote per country, the type that holds all for a column that differs between countries.
 

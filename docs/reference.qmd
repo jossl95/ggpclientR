@@ -25,7 +25,8 @@ as `download: 5 done, 2 skipped, 0 failed`; its fields are `done`, `skipped` and
 | function | does |
 |---|---|
 | `ggp_read(path, col_select, labelled = TRUE, lazy = FALSE)` | a `.parquet`, `.dta`, `.sav`, `.rds`, `.csv` or FFS `.sps` as a data frame; a `.rds.7z` or `.zip` with one datafile too; `lazy = TRUE` gives an arrow dataset |
-| `ggp_meta(path)` | the labels of a `.dta`, `.sav` or `.rds` as a list (what `meta.json` holds) |
+| `ggp_meta(path)` | the labels of a `.dta`, `.sav` or `.rds` as a list (what `meta.json` holds); for a `.parquet`, its `meta.json` |
+| `ggp_label(df, meta, columns)` | put the variable and value labels on the columns, as haven labelled columns (`haven::as_factor()` gives the labels) |
 | `ggp_convert_ffs(sps, ext = "dta", force = FALSE)` | one FFS dataset to dta, sav or csv, next to the `.sps` |
 
 Every function has a help page: `?ggp_download`.

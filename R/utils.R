@@ -85,3 +85,21 @@ failures <- function(names, errors) data.frame(name = as.character(names), error
 
 # a list that JSON writes as an object, also when it is empty
 obj <- function(x) if (length(x)) x else structure(list(), names = character())
+
+# the names in lower case; two names that differ only in case cannot both be kept
+lower_names <- function(names, where) {
+  low <- tolower(names)
+  dup <- which(duplicated(low))
+  if (length(dup)) {
+    cli::cli_abort("{where}: {names[match(low[dup[1]], low)]} and {names[dup[1]]} differ only in case", class = "ggp_error")
+  }
+  low
+}
+
+# meta with the variable names in the lists under `keys` in lower case
+lower_keys <- function(meta, keys) {
+  for (k in intersect(keys, names(meta))) {
+    if (length(meta[[k]])) names(meta[[k]]) <- tolower(names(meta[[k]]))
+  }
+  meta
+}

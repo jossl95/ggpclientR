@@ -513,8 +513,8 @@ ggp_stata <- function(p, rows = NULL, concurrency = 1, async = FALSE) {
 #' Convert one FFS dataset to Stata or SPSS
 #'
 #' Reads an FFS `.dat` with the layout and labels of its `.sps` and saves it, with variable and value labels, next
-#' to the `.sps`. Every `$` in a variable name becomes `_` (Stata does not allow `$`). Missing value codes stay in the
-#' data; sav also marks them as missing, as SPSS would.
+#' to the `.sps`. Every `$` in a variable name becomes `_` (Stata does not allow `$`), and names are lower case
+#' (`IND01$01` becomes `ind01_01`). Missing value codes stay in the data; sav also marks them as missing, as SPSS would.
 #'
 #' @param sps The `.sps` file; its `.dat` is the one of the same name, or the only one next to it.
 #' @param ext `"dta"`, `"sav"`, `"csv"` (codes only), or several.
@@ -526,7 +526,7 @@ ggp_stata <- function(p, rows = NULL, concurrency = 1, async = FALSE) {
 #' }
 #' @export
 ggp_convert_ffs <- function(sps, ext = "dta", force = FALSE) {
-  d <- read_ffs(sps, dat_of(sps))
+  d <- lower_case(read_ffs(sps, dat_of(sps)), basename(sps))
   targets <- file.path(dirname(sps), paste0(tools::file_path_sans_ext(basename(sps)), ".", norm_ext(ext)))
   for (t in targets) write_data(d$df, d$meta, t, force)
   invisible(targets)
