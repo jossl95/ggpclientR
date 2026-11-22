@@ -1,3 +1,16 @@
+# ggpclient 0.2.0
+
+* Datafiles are saved in the country folder, named after their dataset: `download/raw/ggs-ii/w1/at/ggs2_w1_at_v1.1.dta`
+  (and `processed/` likewise); documents go into a folder of that name. A wave that adds a name to a wave or the pilot
+  gets a folder in it: `w2pilot` is `w2/pilot`, `pilotfollowup` is `pilot/followup`. Downloads in the old layout are
+  still read.
+* Variable names are lower case in everything written after a download (parquet, `meta.json`, FFS conversions,
+  consolidated files); the raw downloads keep the portal's names.
+* `ggp_label()` puts variable and value labels on a data frame; `ggp_meta()` also reads a parquet's `meta.json`.
+* Country-specific variables: the file's own `country` variable is used before the table, as in the Python package.
+* Downloads are tried again after a dropped connection, and finished downloads are recorded per batch.
+* The login writes the cookie jar itself: a cookie jar written late by curl could overwrite the session.
+
 # ggpclient 0.1.0
 
 * Parquet is read and written with arrow. Consolidation uses DuckDB (`UNION ALL BY NAME`) for waves that fit in its memory

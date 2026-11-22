@@ -74,7 +74,8 @@ p |> ggp_download(ext = "dta")          # done, skipped, failed
 ```
 
 `ext` is the datafile type(s) to keep: `"dta"`, `"sav"`, `"rds"`, `"csv"`, several, or none for dta, sav and csv.
-`metadata = TRUE` also keeps documentation and codebooks. Files go to `data/download/raw`, in lower-case folders.
+`metadata = TRUE` also keeps documentation and codebooks. Files go to the country folder under `data/download/raw`,
+named after their dataset (`ggs-ii/w1/at/ggs2_w1_at_v1.1.dta`); documents go into a folder of that name.
 Existing files are never overwritten unless the client was made with `force = TRUE`; a file already unpacked for these
 options is skipped. A transfer is checked and tried again when it is cut short.
 Each step returns a result that prints as `download: 5 done, 2 skipped, 0 failed` and lists the failures.

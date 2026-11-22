@@ -145,7 +145,7 @@ ggp_rows <- function(p) refresh(p)$rows # a background step may have changed the
 
 portal_request <- function(url) {
   httr2::request(abs_url(url)) |>
-    httr2::req_user_agent("ggpclient/0.1") |>
+    httr2::req_user_agent("ggpclient/0.2") |>
     httr2::req_timeout(60) |>
     httr2::req_error(is_error = \(resp) FALSE) # statuses are handled here
 }
@@ -287,7 +287,7 @@ ggp_login <- function(p) {
   if (!startsWith(url, paste0(ggp_base(), "/"))) {
     cli::cli_abort("the access link must start with {.val {ggp_base()}/}", class = "ggp_login_error", call = NULL)
   }
-  h <- curl::new_handle(useragent = "ggpclient/0.1", timeout = 60, cookiefile = p$jar)
+  h <- curl::new_handle(useragent = "ggpclient/0.2", timeout = 60, cookiefile = p$jar)
   tryCatch(curl::curl_fetch_memory(url, h),
            error = \(e) cli::cli_abort("login request failed ({class(e)[1]})", class = "ggp_login_error", call = NULL))
   ck <- curl::handle_cookies(h) # every cookie the link and its redirects set
@@ -322,7 +322,7 @@ download_one <- function(j) {
   cleanup <- \(ok) unlink(j$part)
   resp <- tryCatch(
     httr2::request(j$url) |>
-      httr2::req_user_agent("ggpclient/0.1") |>
+      httr2::req_user_agent("ggpclient/0.2") |>
       httr2::req_options(cookiefile = j$jar) |>
       httr2::req_retry(max_tries = 3, retry_on_failure = TRUE) |> # a dropped connection or 503: try again, as Python does
       httr2::req_error(is_error = \(r) FALSE) |>

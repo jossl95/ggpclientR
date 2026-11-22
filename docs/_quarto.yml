@@ -10,7 +10,7 @@ website:
   repo-actions: [source, issue]
   navbar:
     left:
-      - text: "0.1.0"  # the package version: keep in step (the docs workflow checks)
+      - text: "0.2.0"  # the package version: keep in step (the docs workflow checks)
       - getting-started.qmd
       - reference.qmd
       - text: Articles

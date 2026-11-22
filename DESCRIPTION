@@ -1,6 +1,6 @@
 Package: ggpclient
 Title: Download, Label and Consolidate Data from the GGP Data Portal
-Version: 0.1.0
+Version: 0.2.0
 Authors@R: person("Jos", "Slabbekoorn", email = "maintainer@example.org", role = c("aut", "cre"), comment = c(note = "placeholder e-mail: set it before publishing"))
 Description: Indexes the data portal of the Generations and Gender Programme (GGP), downloads and unpacks the
     GGS, FFS, Harmonized Histories and Additional Datasets, converts them to parquet with their variable and value

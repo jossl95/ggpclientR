@@ -46,7 +46,10 @@ data/
 ├── catalogue.sqlite       the index (the same schema as the Python package)
 ├── .session.json          the login, mode 600
 ├── ggpclient.log          every step
-└── download/{raw, processed, consolidated}
+└── download/
+    ├── raw/               downloads: <series>/<wave>/<cc>/<stem>.dta, documents in <cc>/<stem>/
+    ├── processed/         parquet + meta.json per data file; FFS conversions
+    └── consolidated/      <series>_<wave>.parquet, .meta.json and .dta
 ```
 
 Nothing is downloaded or written twice: existing files are kept, `force = TRUE` redoes everything and replaces
